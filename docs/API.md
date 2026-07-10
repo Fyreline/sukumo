@@ -62,7 +62,10 @@ night, and recent workouts, then POSTs Sukumo's canonical shape:
 ```
 
 Headers: `Authorization: Bearer <ingest token>`, URL
-`https://sukumo-api.mishka-hub.com/api/ingest/health`.
+`https://sukumo-api.mishka-hub.com/api/ingest/health`. A flat entry with a
+missing/empty `date` defaults to **today** (Europe/London) — date maths is the
+most fragile step to build in Shortcuts, so the server absorbs it (learned from
+the first real phone run, 2026-07-10; Path B entries are never defaulted).
 
 > ⚠️ **Build the real shortcut on Mack's phone during Phase 2 and verify each sample
 > type is actually queryable with the aggregation needed** (steps/energy aggregate

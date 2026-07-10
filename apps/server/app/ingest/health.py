@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from dateutil import parser as dateutil_parser
 from sqlalchemy import select
@@ -152,13 +153,20 @@ def _rows_for_metric_entry(entry: dict) -> list[tuple[str, str, float, str | Non
     if isinstance(entry.get("data"), list):
         unit = entry.get("units") or entry.get("unit")
         points = entry["data"]
+        flat = False
     else:
         unit = entry.get("unit") or entry.get("units")
         points = [entry]
+        flat = True
 
     rows: list[tuple[str, str, float, str | None]] = []
     for point in points:
         date_raw = point.get("date")
+        if not date_raw and flat:
+            # Path A (Shortcuts) ergonomics: a missing/empty date means "today".
+            # Building date maths in the Shortcuts app is its most fragile step;
+            # HAE's nested shape (Path B) always dates its points, so no default there.
+            date_raw = datetime.now(ZoneInfo("Europe/London")).strftime("%Y-%m-%d")
         if not date_raw:
             continue
         ts_start = _normalize_dt(str(date_raw))

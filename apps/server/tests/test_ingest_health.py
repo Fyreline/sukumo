@@ -92,6 +92,45 @@ def test_path_a_ingest_accepts_and_upserts(client):
     assert "body_fat_percentage" in body["unknown_metrics"]
 
 
+def test_path_a_missing_or_empty_date_defaults_to_today(client):
+    """Shortcuts ergonomics: a flat entry with date '' or absent lands as today
+    (Europe/London) instead of being silently skipped -- the exact failure seen
+    on the real phone 2026-07-10 (Format Date chip rendered empty)."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    headers = _mint(make_user())
+    payload = {
+        "metrics": [
+            {"metric": "step_count", "date": "", "qty": 1942, "unit": "count"},
+            {"metric": "active_energy", "qty": 310, "unit": "kcal"},
+        ]
+    }
+    res = client.post("/api/ingest/health", json=payload, headers=headers)
+    assert res.status_code == 200
+    assert res.json()["accepted"] == 2
+    today = datetime.now(ZoneInfo("Europe/London")).strftime("%Y-%m-%d")
+    from app.models import HealthSample
+    from app.db import SessionLocal
+
+    with SessionLocal() as db:
+        rows = db.query(HealthSample).all()
+        assert {r.ts_start[:10] for r in rows} == {today}
+    # re-post -> still idempotent on the defaulted date
+    res2 = client.post("/api/ingest/health", json=payload, headers=headers)
+    assert res2.json()["upserted"] == 0
+
+
+def test_path_b_missing_date_is_still_skipped(client):
+    """The default is Path-A-only: HAE's nested points always carry dates, so a
+    dateless nested point stays skipped rather than guessed."""
+    headers = _mint(make_user())
+    payload = {"data": {"metrics": [{"name": "step_count", "units": "count", "data": [{"qty": 5}]}]}}
+    res = client.post("/api/ingest/health", json=payload, headers=headers)
+    assert res.status_code == 200
+    assert res.json()["accepted"] == 0
+
+
 def test_path_a_repost_is_idempotent(client):
     from app.db import SessionLocal
     from app.models import HealthSample, Workout

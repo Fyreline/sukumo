@@ -239,6 +239,42 @@ class MemoryEvent(Base):
     )
 
 
+# ============ journal_days / digests — DATA_MODEL §5 (memory engine) ========
+# The journal a day assembles itself into (docs/MEMORY.md §3). One row per
+# Europe/London local day — the natural key, so a nightly re-run (or a --date
+# backfill) upserts rather than duplicating. ``summary_md`` + ``stats_json``
+# are DETERMINISTIC functions of that day's memory_events + health aggregates;
+# ``assembled_at`` is only bumped when that deterministic content changes, so
+# re-assembly of an unchanged day leaves the row byte-identical (the
+# determinism law, PHASE-7 acceptance). ``mood`` is the ONE optional human
+# field — one tap, never required, never rebuilt by assembly.
+class JournalDay(Base):
+    __tablename__ = "journal_days"
+
+    local_date: Mapped[str] = mapped_column(primary_key=True)  # 'YYYY-MM-DD', Europe/London
+    assembled_at: Mapped[str] = mapped_column(nullable=False)
+    summary_md: Mapped[str] = mapped_column(nullable=False, server_default=text("''"))
+    stats_json: Mapped[str] = mapped_column(nullable=False, server_default=text("'{}'"))
+    event_count: Mapped[int] = mapped_column(nullable=False, server_default=text("0"))
+    mood: Mapped[str | None] = mapped_column(nullable=True)
+
+
+class Digest(Base):
+    __tablename__ = "digests"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    period_start: Mapped[str] = mapped_column(nullable=False)  # 'YYYY-MM-DD'
+    period_end: Mapped[str] = mapped_column(nullable=False)  # 'YYYY-MM-DD'
+    kind: Mapped[str] = mapped_column(nullable=False)  # 'weekly' | 'trip'
+    content_md: Mapped[str] = mapped_column(nullable=False)
+    sent_at: Mapped[str | None] = mapped_column(nullable=True)
+    created_at: Mapped[str] = mapped_column(nullable=False, server_default=NOW)
+
+    __table_args__ = (
+        UniqueConstraint("kind", "period_start", name="uq_digest"),
+    )
+
+
 # ============ calendar_events / sibling_snapshots — DATA_MODEL §6 ==========
 class CalendarEvent(Base):
     __tablename__ = "calendar_events"

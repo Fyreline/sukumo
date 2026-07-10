@@ -28,6 +28,15 @@ recurring-ical-events>=3.0
 # app/ingest/events.py import it.
 python-dateutil>=2.9
 
+# --- Optional: Photos metadata mapper (docs/MEMORY.md §2, HANDOFF Q4) ---
+# osxphotos reads per-day photo METADATA ONLY (counts, time ranges, place
+# names — never image files) on the household Mac. Pulls in a large pyobjc
+# stack and is macOS-only, so it is OPTIONAL: app/memory/photos.py imports it
+# lazily and degrades to 'not_configured' when it (or a library) is absent, so
+# the test suite stays hermetic without it. Install on the household Mac only:
+#   pip install osxphotos
+# osxphotos>=0.76
+
 # --- Dev / test ---
 pytest>=8.0
 respx>=0.21

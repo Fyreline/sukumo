@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The nightly journal-assembly LaunchAgent (docs/ARCHITECTURE.md §2,
+  docs/MEMORY.md §3). Phase 8 deploys this — DO NOT bootstrap it here. Standing
+  household lessons (DEPLOYMENT §3): invoke .venv/bin/python DIRECTLY (never a
+  shell wrapper) or macOS TCC prompts eat a ~/Documents-touching agent
+  silently; logs to ~/Library/Logs/sukumo/. Runs at 02:30 local, assembling
+  yesterday + re-running yesterday-1 for late HAE syncs (MEMORY §3); on Sundays
+  it also writes the week-in-review digest.
+
+  Photos are opt-in: to include per-day photo metadata (metadata ONLY, no image
+  files — HANDOFF Q4), add an EnvironmentVariables dict setting
+  SUKUMO_PHOTOS_LIBRARY to the Photos.app library path. This agent will then
+  also need Photos-library access granted to .venv/bin/python at first run
+  (macOS TCC). Left unset here — the assembly degrades to 'not_configured' for
+  photos and everything else still runs.
+
+  Paths below assume the household layout (~/Documents/Dev/sukumo); adjust at
+  deploy time if the checkout lives elsewhere.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.sukumo.journal</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/mack/Documents/Dev/sukumo/apps/server/.venv/bin/python</string>
+        <string>/Users/mack/Documents/Dev/sukumo/apps/server/scripts/assemble_day.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/mack/Documents/Dev/sukumo/apps/server</string>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>2</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/mack/Library/Logs/sukumo/journal.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/mack/Library/Logs/sukumo/journal.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

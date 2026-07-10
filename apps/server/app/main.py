@@ -16,7 +16,7 @@ from .db import engine
 from .errors import register_error_handlers
 from .identity import MishkaIdentityClient
 from .models import Base
-from .routers import auth, dashboard, habits, health, ingest, notify, nudges, people, settings as settings_router, status
+from .routers import auth, dashboard, habits, health, ingest, journal, notify, nudges, people, settings as settings_router, status
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -61,8 +61,8 @@ def create_app() -> FastAPI:
     # Depends(current_user); /api/people|occasions|gifts and /api/nudges
     # additionally require role='primary' (routers/people.py,
     # routers/nudges.py) — except GET /api/nudges/act/{token}, deliberately
-    # open (AUTH.md §4). /api/journal lands with the coach (Phase 6+,
-    # docs/ARCHITECTURE.md §1).
+    # open (AUTH.md §4). /api/journal + /api/digests are primary-only too
+    # (routers/journal.py, Phase 7, docs/MEMORY.md §5).
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
     app.include_router(ingest.router, prefix="/api")
@@ -71,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(dashboard.router, prefix="/api")
     app.include_router(habits.router, prefix="/api")
     app.include_router(people.router, prefix="/api")
+    app.include_router(journal.router, prefix="/api")
     app.include_router(status.router, prefix="/api")
     app.include_router(settings_router.router, prefix="/api")
 

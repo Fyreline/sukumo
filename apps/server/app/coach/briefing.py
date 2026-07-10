@@ -156,6 +156,47 @@ def _japan_line(session: Session, now: datetime) -> str | None:
     return f"Japan in {days} days."
 
 
+def _memory_line(session: Session, now: datetime) -> str | None:
+    """The anniversary well (MEMORY §4): "on this date in past years". Silent
+    until a past year's journal_days row shares today's month-day — the
+    compounding payoff of running the engine from now."""
+    from ..memory.assemble import anniversary
+
+    today = _today(now)
+    hits = anniversary(session, today.isoformat())
+    if not hits:
+        return None
+    top = hits[0]
+    years = top["years_ago"]
+    when = "a year ago today" if years == 1 else f"{years} years ago today"
+    return f"**On this day** — {when}, there was something worth remembering."
+
+
+def _weekly_digest_section(session: Session, now: datetime) -> str | None:
+    """On Sundays, a redaction-safe pointer to the week-in-review (MEMORY §3).
+
+    The full digest (with its step/photo figures) lives in the ``digests`` row
+    and the journal UI; the briefing only carries a *category* teaser, because
+    every briefing line must pass the redaction gate — no figures that read as
+    measurements (ARCHITECTURE §5.2). Composed read-only from journal_days for
+    the week ending yesterday."""
+    from ..memory.digest import compose_weekly
+
+    today = _today(now)
+    if today.weekday() != 6:  # 6 == Sunday
+        return None
+    end_date = today - timedelta(days=1)
+    _start, _end, _content_md, totals = compose_weekly(session, end_date)
+    logged = totals.get("logged_days", 0)
+    if logged == 0:
+        return None
+    days_word = "day" if logged == 1 else "days"
+    return (
+        f"**Week in review** — {logged} {days_word} left a trace. "
+        "Your full digest is on the journal."
+    )
+
+
 def compose(
     session: Session, now: datetime, settings: Settings, proposals: list[NudgeProposal]
 ) -> tuple[str, str]:
@@ -187,6 +228,17 @@ def compose(
     occ = _occasion_lines(session, now)
     if occ:
         sections.append("\n**Coming up**\n" + "\n".join(occ))
+
+    memory = _memory_line(session, now)
+    if memory:
+        sections.append(f"\n{memory}")
+
+    # Sunday: the week just past, stitched from the journal (MEMORY §3). Read
+    # of journal_days only — the persisted digests row is written by the
+    # nightly assembly; the briefing simply surfaces the same content.
+    weekly = _weekly_digest_section(session, now)
+    if weekly:
+        sections.append(f"\n{weekly}")
 
     japan = _japan_line(session, now)
     if japan:

@@ -1,0 +1,15 @@
+# runtime data & secrets — the repo may go public (DEPLOYMENT.md §6)
+data/
+.env
+docs/PRIVATE.md
+*.db
+*.db-wal
+*.db-shm
+
+# toolchains
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store

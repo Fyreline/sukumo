@@ -5,6 +5,7 @@ import { ThemeToggle } from './components/ThemeToggle'
 import { VatMark } from './components/VatMark'
 import { BridgePage } from './pages/BridgePage'
 import { HabitsPage } from './pages/HabitsPage'
+import { JournalPage } from './pages/JournalPage'
 import { NudgeInbox } from './pages/NudgeInbox'
 import { PeoplePage } from './pages/PeoplePage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -12,13 +13,14 @@ import { SettingsPage } from './pages/SettingsPage'
 /** Gates the whole app behind the household login (docs/AUTH.md), then the
  * tab shell (Michi's household pattern: desktop header nav + mobile bottom
  * bar). role='partner' gets the slim shell — Bridge (the slim portal
- * variant, server-redacted) + Settings only; People/Habits are
+ * variant, server-redacted) + Settings only; Journal/People/Habits are
  * primary-only surfaces (and the server 403s them anyway). */
 
-type Tab = 'bridge' | 'people' | 'habits' | 'nudges' | 'settings'
+type Tab = 'bridge' | 'journal' | 'people' | 'habits' | 'nudges' | 'settings'
 
 const PRIMARY_TABS: { id: Tab; label: string }[] = [
   { id: 'bridge', label: 'Bridge' },
+  { id: 'journal', label: 'Journal' },
   { id: 'people', label: 'People' },
   { id: 'habits', label: 'Habits' },
   { id: 'nudges', label: 'Nudges' },
@@ -42,6 +44,16 @@ function TabIcon({ tab }: { tab: Tab }) {
             <rect x="3" y="11" width="6" height="6" rx="1" />
             <rect x="11" y="14" width="6" height="3" rx="1" />
           </g>
+        </svg>
+      )
+    case 'journal':
+      // the memory thread: pearls on the liquid line
+      return (
+        <svg viewBox="0 0 20 20" aria-hidden className={cls}>
+          <line x1="10" y1="2.5" x2="10" y2="17.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          <circle cx="10" cy="5.5" r="2" fill="currentColor" />
+          <circle cx="10" cy="10.5" r="1.4" fill="currentColor" />
+          <circle cx="10" cy="15" r="2.4" fill="currentColor" />
         </svg>
       )
     case 'people':
@@ -112,7 +124,19 @@ export default function App() {
 
 function AuthenticatedApp({ user }: { user: AuthUser }) {
   const [tab, setTab] = useState<Tab>('bridge')
+  // A memory-strip tap carries its day into the journal; plain tab
+  // navigation clears it so the page opens at the top.
+  const [journalFocus, setJournalFocus] = useState<string | null>(null)
   const tabs = user.role === 'primary' ? PRIMARY_TABS : PARTNER_TABS
+
+  const go = (next: Tab) => {
+    setJournalFocus(null)
+    setTab(next)
+  }
+  const openJournalDay = (date: string) => {
+    setJournalFocus(date)
+    setTab('journal')
+  }
 
   return (
     <div className="flex min-h-full flex-col bg-paper text-ink">
@@ -130,7 +154,7 @@ function AuthenticatedApp({ user }: { user: AuthUser }) {
               <button
                 key={t.id}
                 type="button"
-                onClick={() => setTab(t.id)}
+                onClick={() => go(t.id)}
                 aria-current={tab === t.id ? 'page' : undefined}
                 className={`inline-flex items-center gap-1.5 rounded-b-md px-3 py-1.5 text-sm font-medium transition ${
                   tab === t.id ? 'border-b-2 border-clay text-ink' : 'text-ink-mid hover:bg-oat'
@@ -151,9 +175,13 @@ function AuthenticatedApp({ user }: { user: AuthUser }) {
       <main className="mx-auto w-full max-w-6xl flex-1 px-5 pb-24 pt-6 sm:pb-10 sm:pt-8">
         {tab === 'bridge' && (
           <BridgePage
-            onOpenPeople={user.role === 'primary' ? () => setTab('people') : undefined}
-            onOpenNudges={user.role === 'primary' ? () => setTab('nudges') : undefined}
+            onOpenPeople={user.role === 'primary' ? () => go('people') : undefined}
+            onOpenNudges={user.role === 'primary' ? () => go('nudges') : undefined}
+            onOpenJournal={user.role === 'primary' ? openJournalDay : undefined}
           />
+        )}
+        {tab === 'journal' && user.role === 'primary' && (
+          <JournalPage key={journalFocus ?? 'top'} focusDate={journalFocus} />
         )}
         {tab === 'people' && user.role === 'primary' && <PeoplePage />}
         {tab === 'habits' && user.role === 'primary' && <HabitsPage />}
@@ -170,7 +198,7 @@ function AuthenticatedApp({ user }: { user: AuthUser }) {
           <button
             key={t.id}
             type="button"
-            onClick={() => setTab(t.id)}
+            onClick={() => go(t.id)}
             aria-current={tab === t.id ? 'page' : undefined}
             className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition ${
               tab === t.id ? 'text-clay' : 'text-ink-soft'

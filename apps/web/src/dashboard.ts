@@ -57,6 +57,14 @@ export interface MemoryDay {
   event_count: number
 }
 
+/** An "on this date in past years" hit (MEMORY §4). The dashboard doesn't
+ * compose this yet (only GET /api/journal/{date} does) — typed optionally so
+ * the strip's fig anniversary line lights up the day the server adds it. */
+export interface AnniversaryHit {
+  local_date: string
+  years_ago: number
+}
+
 export interface SiblingStatus {
   app: 'michi' | 'kakeibo' | 'mishka'
   ok: boolean | null
@@ -88,6 +96,7 @@ export interface Dashboard {
   goal?: Goal | null
   occasions?: OccasionEntry[]
   memory_strip?: MemoryDay[]
+  anniversary?: AnniversaryHit[] | null
   weather?: { home: WeatherDay | null; office: WeatherDay | null; age_seconds: number } | null
   nudges_pending?: number
 }

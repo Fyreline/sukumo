@@ -19,6 +19,14 @@ os.environ.setdefault("SUKUMO_DATABASE_URL", f"sqlite:///{_TEST_DATA_DIR / 'suku
 os.environ.setdefault("SUKUMO_MISHKA_BASE_URL", "http://127.0.0.1:8000")
 os.environ.setdefault("SUKUMO_PRIMARY_EMAIL", "mack@example.com")
 os.environ.setdefault("SUKUMO_ENVIRONMENT", "test")
+# The household machine's real apps/server/.env sets the Phase-3 sibling
+# service tokens (and the live siblings answer on loopback!) — pin them
+# empty for tests so the poll clients stay hermetic 'not_configured'
+# regardless of where the suite runs. Env vars beat the .env file in
+# pydantic-settings, so a plain assignment (not setdefault) is deliberate.
+os.environ["SUKUMO_MICHI_SERVICE_TOKEN"] = ""
+os.environ["SUKUMO_KAKEIBO_SERVICE_TOKEN"] = ""
+os.environ["SUKUMO_MISHKA_SERVICE_TOKEN"] = ""
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

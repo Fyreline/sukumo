@@ -16,7 +16,7 @@ from .db import engine
 from .errors import register_error_handlers
 from .identity import MishkaIdentityClient
 from .models import Base
-from .routers import auth, habits, health, ingest, status
+from .routers import auth, dashboard, habits, health, ingest, people, status
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -50,14 +50,18 @@ def create_app() -> FastAPI:
 
     # /api/health, /api/auth/(login|refresh|logout), and /api/ingest/* stay
     # public to JWT auth (ingest routes carry their own token-auth door,
-    # docs/AUTH.md §3); /api/auth/me, /api/habits/*, /api/status enforce
-    # JWT auth via Depends(current_user). Later phases' routers (dashboard/
-    # people/nudges/journal/notify) are wired in as they're built
+    # docs/AUTH.md §3); /api/auth/me, /api/habits/*, /api/books/*,
+    # /api/status and /api/dashboard enforce JWT auth via
+    # Depends(current_user); /api/people|occasions|gifts additionally
+    # require role='primary' (routers/people.py). Later phases' routers
+    # (nudges/journal/notify) are wired in as they're built
     # (docs/ARCHITECTURE.md §1).
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
     app.include_router(ingest.router, prefix="/api")
+    app.include_router(dashboard.router, prefix="/api")
     app.include_router(habits.router, prefix="/api")
+    app.include_router(people.router, prefix="/api")
     app.include_router(status.router, prefix="/api")
 
     return app

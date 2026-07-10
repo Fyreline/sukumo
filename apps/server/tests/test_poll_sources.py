@@ -25,6 +25,10 @@ def _settings(**overrides) -> Settings:
         home_lon=None,
         office_lat=None,
         office_lon=None,
+        # explicit, not inherited from any real .env -- hermetic by default
+        michi_service_token="",
+        kakeibo_service_token="",
+        mishka_service_token="",
     )
     base.update(overrides)
     return Settings(**base)
@@ -326,7 +330,11 @@ async def test_sibling_snapshots_pruned_to_50_per_app(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_run_includes_all_three_sibling_results():
+async def test_run_includes_all_three_sibling_results(monkeypatch):
+    # run() reads get_settings() (lru-cached over the real .env, which on the
+    # household machine has live tokens/coords/feeds) -- pin it to the same
+    # hermetic Settings the rest of this module uses.
+    monkeypatch.setattr(poll_sources, "get_settings", lambda: _settings())
     with SessionLocal() as db:
         result = await poll_sources.run(db)
     assert result["michi"]["status"] == "not_configured"

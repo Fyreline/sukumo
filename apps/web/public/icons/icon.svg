@@ -1,13 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
   <!--
-    Sukumo placeholder app icon — the vat glyph (docs/DESIGN.md §2): a
-    minimal woodblock aigame (藍甕, indigo dye vat) seen from above. Full-bleed
-    maskable-safe: the paper background fills the whole canvas so an OS mask
-    (circle/squircle/rounded-square) never clips to transparency; the indigo
-    pool + clay hanko dot sit well inside the ~80% maskable safe zone.
-    Placeholder quality — Phase 4 replaces this with the real household mark.
+    Sukumo app icon — the vat glyph (docs/DESIGN.md §2): a minimal woodblock
+    aigame (藍甕, indigo dye vat) seen from above — a paper-white rim ring
+    around a deep indigo pool, a small clay hanko dot on the rim. Full-bleed
+    maskable-safe: the paper ground fills the canvas; the vat sits inside the
+    ~80% safe zone. Colour values are the frozen Aizome palette
+    (apps/web/src/theme.css — paper/ink/clay, both schemes); the embedded
+    media query renders the night-print variant where the platform supports
+    scheme-aware SVG icons and falls back to the paper scheme elsewhere.
   -->
-  <rect width="192" height="192" fill="#f7fbfa" />
-  <circle cx="96" cy="96" r="58" fill="#254e70" />
-  <circle cx="146" cy="96" r="9" fill="#c33c54" />
+  <style>
+    .ground { fill: #f7fbfa; }
+    .rim    { fill: #ffffff; stroke: rgba(23, 41, 58, 0.24); }
+    .rim-in { stroke: rgba(23, 41, 58, 0.12); }
+    .pool   { fill: #254e70; }
+    .pool-deep { fill: #17293a; }
+    .hanko  { fill: #c33c54; }
+    @media (prefers-color-scheme: dark) {
+      .ground { fill: #0f1d2b; }
+      .rim    { fill: #1f3549; stroke: rgba(236, 246, 244, 0.22); }
+      .rim-in { stroke: rgba(236, 246, 244, 0.10); }
+      .pool   { fill: #254e70; }
+      .pool-deep { fill: #17293a; }
+      .hanko  { fill: #e05a72; }
+    }
+  </style>
+  <rect class="ground" width="192" height="192" />
+  <!-- outer rim: the vat's paper-white lip -->
+  <circle class="rim" cx="96" cy="96" r="66" stroke-width="2" />
+  <!-- inner rim line: the woodblock cut between lip and pool -->
+  <circle class="rim-in" cx="96" cy="96" r="54" fill="none" stroke-width="1.5" />
+  <!-- the indigo pool, with a deeper centre -->
+  <circle class="pool" cx="96" cy="96" r="50" />
+  <circle class="pool-deep" cx="96" cy="96" r="36" />
+  <!-- the clay hanko dot, sitting ON the rim ring (mid-band, radius 58) -->
+  <circle class="hanko" cx="154" cy="96" r="8" />
 </svg>

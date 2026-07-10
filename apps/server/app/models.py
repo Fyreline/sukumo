@@ -8,8 +8,9 @@ never baked into storage (DATA_MODEL preamble).
 Phase 1 (scaffold) defined the identity tables auth needs. Phase 2
 (docs/phases/PHASE-2-ingestion.md) adds DATA_MODEL §1's ``ingest_tokens``,
 §2's health/habit tables, §5's ``memory_events``, §6's calendar/sibling
-tables, and §7's ops tables. ``books`` (§2) is Phase 4; people/occasions/
-gifts (§3), coach (§4) are their own later phases.
+tables, and §7's ops tables. Phase 4 (docs/phases/PHASE-4-dashboard.md)
+adds §2's ``books`` and §3's people/occasions/gift_ideas; coach (§4) is
+its own later phase.
 """
 from __future__ import annotations
 
@@ -149,6 +150,73 @@ class HabitEvent(Base):
     __table_args__ = (
         UniqueConstraint("habit_id", "local_date", "source", name="uq_habit_event"),
     )
+
+
+# ============ books — DATA_MODEL §2 (the reading habit's companion) ========
+class Book(Base):
+    __tablename__ = "books"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(nullable=False)
+    author: Mapped[str | None] = mapped_column(nullable=True)
+    # 'reading' | 'finished' | 'abandoned' — the current read (shown on the
+    # reading streak card, HANDOFF Q1) is the newest 'reading' row; finishing
+    # one writes a memory_events milestone (routers/habits.py, DATA_MODEL §2).
+    status: Mapped[str] = mapped_column(nullable=False, server_default=text("'reading'"))
+    started_on: Mapped[str | None] = mapped_column(nullable=True)  # 'YYYY-MM-DD'
+    finished_on: Mapped[str | None] = mapped_column(nullable=True)  # 'YYYY-MM-DD'
+    notes: Mapped[str | None] = mapped_column(nullable=True)
+    created_at: Mapped[str] = mapped_column(nullable=False, server_default=NOW)
+
+
+# ============ people / occasions / gift_ideas — DATA_MODEL §3 ===============
+# The deliberate-manual corner: real names/birthdays are DATA, entered
+# through the UI into the DB — they never appear in the repo
+# (ARCHITECTURE §5.5). Calendar import only ever SUGGESTS (routers/people.py);
+# nothing auto-creates a person.
+class Person(Base):
+    __tablename__ = "people"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(nullable=False)
+    relation: Mapped[str | None] = mapped_column(nullable=True)
+    birthday: Mapped[str | None] = mapped_column(nullable=True)  # 'YYYY-MM-DD'
+    notes: Mapped[str | None] = mapped_column(nullable=True)
+    archived: Mapped[int] = mapped_column(nullable=False, server_default=text("0"))
+    created_at: Mapped[str] = mapped_column(nullable=False, server_default=NOW)
+
+
+class Occasion(Base):
+    __tablename__ = "occasions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    person_id: Mapped[int | None] = mapped_column(ForeignKey("people.id"), nullable=True)
+    title: Mapped[str] = mapped_column(nullable=False)
+    # Exactly ONE of month_day ('09-22', for recurrence='yearly') or date
+    # ('YYYY-MM-DD', for recurrence='once') is set — enforced in the router.
+    month_day: Mapped[str | None] = mapped_column(nullable=True)
+    date: Mapped[str | None] = mapped_column(nullable=True)
+    recurrence: Mapped[str] = mapped_column(nullable=False)  # 'yearly' | 'once'
+    lead_days: Mapped[int] = mapped_column(nullable=False, server_default=text("21"))
+    kind: Mapped[str] = mapped_column(nullable=False, server_default=text("'event'"))  # birthday|anniversary|event|deadline
+    # Surprise guard (DATA_MODEL §3, PRIVATE §2 ⚠️): when set, ONLY this user
+    # ever sees the occasion. Required before the partner portal may ever
+    # render occasion data (it doesn't at v1 regardless — dashboard.py).
+    private_to_user: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[str] = mapped_column(nullable=False, server_default=NOW)
+
+
+class GiftIdea(Base):
+    __tablename__ = "gift_ideas"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    person_id: Mapped[int] = mapped_column(ForeignKey("people.id"), nullable=False)
+    idea: Mapped[str] = mapped_column(nullable=False)
+    url: Mapped[str | None] = mapped_column(nullable=True)
+    price_pence: Mapped[int | None] = mapped_column(nullable=True)
+    status: Mapped[str] = mapped_column(nullable=False, server_default=text("'idea'"))  # 'idea'|'bought'|'given'
+    occasion_id: Mapped[int | None] = mapped_column(ForeignKey("occasions.id"), nullable=True)
+    created_at: Mapped[str] = mapped_column(nullable=False, server_default=NOW)
 
 
 # ============ memory_events — DATA_MODEL §5 =================================

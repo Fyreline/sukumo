@@ -1,5 +1,6 @@
 """Habit config + the 1-tap evidence log -- docs/DATA_MODEL.md #2,
-docs/phases/PHASE-2-ingestion.md build item 7.
+docs/phases/PHASE-2-ingestion.md build item 7 -- plus the books endpoints
+(Phase 4, HANDOFF Q1: the reading habit's companion lives with habits).
 
     GET    /api/habits              -- list, config as stored
     POST   /api/habits              -- create a habit
@@ -8,6 +9,10 @@ docs/phases/PHASE-2-ingestion.md build item 7.
                                         idempotent per Europe/London day --
                                         matches app.ingest.events' reading
                                         route, DATA_MODEL #2)
+    GET    /api/books               -- current read + history (newest first)
+    POST   /api/books               -- start a book (status 'reading')
+    PATCH  /api/books/{id}          -- edit; finishing writes the
+                                        memory_events milestone (DATA_MODEL #2)
 
 JWT-auth (any authenticated household member); a habit's streak/gap maths
 is computed off habit_events at read time elsewhere (DATA_MODEL #2), not
@@ -27,7 +32,7 @@ from sqlalchemy.orm import Session
 from ..auth import current_user
 from ..db import get_session
 from ..errors import SukumoHTTPException
-from ..models import Habit, HabitEvent
+from ..models import Book, Habit, HabitEvent, MemoryEvent
 
 router = APIRouter(tags=["habits"])
 
@@ -169,3 +174,118 @@ async def log_habit_event(
         "note": existing.note,
         "created": created,
     }
+
+
+# ------------------------------- books (DATA_MODEL §2, HANDOFF Q1) --------
+BOOK_STATUSES = ("reading", "finished", "abandoned")
+
+
+def _book_dict(book: Book) -> dict:
+    return {
+        "id": book.id,
+        "title": book.title,
+        "author": book.author,
+        "status": book.status,
+        "started_on": book.started_on,
+        "finished_on": book.finished_on,
+        "notes": book.notes,
+    }
+
+
+class BookCreate(BaseModel):
+    title: str
+    author: str | None = None
+    started_on: str | None = None  # default: today (Europe/London)
+    notes: str | None = None
+
+
+class BookPatch(BaseModel):
+    title: str | None = None
+    author: str | None = None
+    status: str | None = None
+    started_on: str | None = None
+    finished_on: str | None = None
+    notes: str | None = None
+
+
+@router.get("/books")
+async def list_books(user_id: int = Depends(current_user), session: Session = Depends(get_session)) -> list[dict]:
+    books = session.scalars(select(Book).order_by(Book.started_on.desc(), Book.id.desc())).all()
+    return [_book_dict(b) for b in books]
+
+
+@router.post("/books")
+async def create_book(
+    body: BookCreate, user_id: int = Depends(current_user), session: Session = Depends(get_session)
+) -> dict:
+    if not body.title.strip():
+        raise SukumoHTTPException(status_code=422, detail="title is required", code="validation_error")
+    book = Book(
+        title=body.title.strip(),
+        author=body.author,
+        status="reading",
+        started_on=body.started_on or _today_local(),
+        notes=body.notes,
+    )
+    session.add(book)
+    session.commit()
+    session.refresh(book)
+    return _book_dict(book)
+
+
+@router.patch("/books/{book_id}")
+async def patch_book(
+    book_id: int,
+    body: BookPatch,
+    user_id: int = Depends(current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    book = session.get(Book, book_id)
+    if book is None:
+        raise SukumoHTTPException(status_code=404, detail="Book not found", code="not_found")
+    if body.status is not None and body.status not in BOOK_STATUSES:
+        raise SukumoHTTPException(
+            status_code=422, detail=f"status must be one of {BOOK_STATUSES}", code="validation_error"
+        )
+
+    finishing = body.status == "finished" and book.status != "finished"
+
+    if body.title is not None:
+        book.title = body.title.strip()
+    if body.author is not None:
+        book.author = body.author
+    if body.started_on is not None:
+        book.started_on = body.started_on
+    if body.finished_on is not None:
+        book.finished_on = body.finished_on
+    if body.notes is not None:
+        book.notes = body.notes
+    if body.status is not None:
+        book.status = body.status
+        if finishing and not book.finished_on:
+            book.finished_on = _today_local()
+
+    # Finishing a book writes a memory_events milestone (DATA_MODEL §2) —
+    # provider_uid keeps it idempotent if the same book is re-finished.
+    if finishing:
+        existing_milestone = session.scalar(
+            select(MemoryEvent).where(
+                MemoryEvent.source == "books", MemoryEvent.provider_uid == f"book:{book.id}:finished"
+            )
+        )
+        if existing_milestone is None:
+            session.add(
+                MemoryEvent(
+                    user_id=user_id,
+                    ts=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                    kind="milestone",
+                    title=f"Finished “{book.title}”",
+                    detail_json=json.dumps({"book_id": book.id, "author": book.author}),
+                    source="books",
+                    provider_uid=f"book:{book.id}:finished",
+                )
+            )
+
+    session.commit()
+    session.refresh(book)
+    return _book_dict(book)

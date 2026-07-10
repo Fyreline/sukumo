@@ -43,7 +43,7 @@ async function doFetch(path: string, init: RequestInit, accessToken: string | nu
   return fetch(`${BASE}${path}`, { ...init, headers })
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function rawRequest(path: string, init?: RequestInit): Promise<Response> {
   let res: Response
   try {
     const token = await getValidAccessToken()
@@ -68,8 +68,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const { detail, code } = await parseErrorBody(res)
     throw new ApiError(detail, { code, status: res.status })
   }
+  return res
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await rawRequest(path, init)
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
+}
+
+/** GET that also reports whether the service worker served the last-good
+ * cached copy instead of the network (docs/DESIGN.md §5: the `stale` chip).
+ * sw.ts stamps `X-Sukumo-Stale: 1` onto cache-fallback responses. */
+export async function getWithStale<T>(path: string): Promise<{ data: T; stale: boolean }> {
+  const res = await rawRequest(path)
+  return { data: (await res.json()) as T, stale: res.headers.get('X-Sukumo-Stale') === '1' }
 }
 
 /** Exported for feature modules (dashboard, habits, …) that own their
@@ -82,6 +95,15 @@ export function get<T>(path: string): Promise<T> {
 export function post<T>(path: string, body: unknown): Promise<T> {
   return request<T>(path, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
+/** JSON PATCH twin — partial updates (habits, books, people, gifts). */
+export function patch<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })

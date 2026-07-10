@@ -66,6 +66,13 @@ function clearSession() {
   accessTokenExpiresAt = 0
   currentUser = null
   localStorage.removeItem(REFRESH_STORAGE_KEY)
+  // Drop the service worker's last-good /api/dashboard copy (sw.ts) — the
+  // cache is keyed by URL, not user, and the next sign-in could be the
+  // other household member; a partner must never be shown the primary's
+  // cached bridge (DESIGN §3 partner portal).
+  if (typeof caches !== 'undefined') {
+    caches.delete('sukumo-api-v1').catch(() => undefined)
+  }
   notify()
 }
 

@@ -92,6 +92,28 @@ class Settings(BaseSettings):
 
     mishka_service_token: str = ""
 
+    # --- The notification bus (docs/API.md §5, docs/ARCHITECTURE.md §5.2,
+    # docs/phases/PHASE-5-notify.md). Channel v1: ntfy.sh with an unguessable
+    # topic (PRIVATE.md) — either may be unset, which app/notify.py treats as
+    # "inbox-only, never an error" (never a crash), matching every other
+    # not_configured client in this app. ---
+    ntfy_url: str = ""
+    ntfy_topic: str = ""
+
+    # --- The base URL used to build the act/{token} one-click link (AUTH.md
+    # §4) that opens FROM inside a phone notification — deliberately its own
+    # setting rather than reusing cors_origins/mishka_base_url, since in
+    # production it must be the tunnel hostname (reachable off the household
+    # LAN), not loopback. ---
+    public_api_base: str = "http://127.0.0.1:8301"
+
+    # --- COACH.md §2: nothing pushes inside this window; a nudge that lands
+    # here is held (notify.py moves scheduled_for to the window's end)
+    # rather than dropped. 'HH:MM-HH:MM', Europe/London, wraps midnight,
+    # settings-overridable later (Setting row not read here — v1 is env-only,
+    # SettingsPage.tsx's quiet-hours control lands with the coach). ---
+    quiet_hours: str = "22:30-07:30"
+
     @property
     def auth_configured(self) -> bool:
         return bool(self.jwt_secret)

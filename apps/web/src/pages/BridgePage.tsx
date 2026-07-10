@@ -104,7 +104,13 @@ function SlimBridge({ data }: { data: Dashboard }) {
   )
 }
 
-export function BridgePage({ onOpenPeople }: { onOpenPeople?: () => void }) {
+export function BridgePage({
+  onOpenPeople,
+  onOpenNudges,
+}: {
+  onOpenPeople?: () => void
+  onOpenNudges?: () => void
+}) {
   const [data, setData] = useState<Dashboard | null>(null)
   const [stale, setStale] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -160,7 +166,7 @@ export function BridgePage({ onOpenPeople }: { onOpenPeople?: () => void }) {
     <PeopleTile key="people" occasions={data.occasions} onOpenPeople={onOpenPeople ?? (() => undefined)} />,
     <MemoryStripTile key="memory" strip={data.memory_strip} />,
     <OpsTile key="ops" siblings={siblings} />,
-    <NudgeTile key="nudges" count={data.nudges_pending} />,
+    <NudgeTile key="nudges" count={data.nudges_pending} onOpenNudges={onOpenNudges} />,
   ]
 
   return (

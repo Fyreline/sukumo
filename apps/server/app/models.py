@@ -275,6 +275,33 @@ class SiblingSnapshot(Base):
     __table_args__ = (Index("idx_sibling_snapshots_app", "app", "fetched_at"),)
 
 
+# ============ nudges — DATA_MODEL §4 (coach) ================================
+class Nudge(Base):
+    __tablename__ = "nudges"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    # which rule proposed it ('bus:<source>' for POST /api/notify bus
+    # messages, Phase 5; a coach/rules/*.py module's own key from Phase 6).
+    rule_key: Mapped[str] = mapped_column(nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # idempotency guard (DATA_MODEL §4): e.g. 'gym-gap:2026-07-10' for a
+    # recurring rule, 'bus:<source>:<uuid>' for a one-off bus message —
+    # UNIQUE means a crashed tick/re-POST cannot double-send.
+    dedupe_key: Mapped[str] = mapped_column(nullable=False, unique=True)
+    scheduled_for: Mapped[str] = mapped_column(nullable=False)
+    sent_at: Mapped[str | None] = mapped_column(nullable=True)
+    channel: Mapped[str] = mapped_column(nullable=False)  # 'ntfy' | 'webpush' | 'inbox'
+    title: Mapped[str] = mapped_column(nullable=False)
+    body: Mapped[str] = mapped_column(nullable=False)
+    # 'pending' | 'sent' | 'snoozed' | 'dismissed' | 'actioned' | 'expired'
+    status: Mapped[str] = mapped_column(nullable=False, server_default=text("'pending'"))
+    snoozed_until: Mapped[str | None] = mapped_column(nullable=True)
+    context_json: Mapped[str] = mapped_column(nullable=False, server_default=text("'{}'"))
+    created_at: Mapped[str] = mapped_column(nullable=False, server_default=NOW)
+
+    __table_args__ = (Index("idx_nudges_user_status", "user_id", "status"),)
+
+
 # ============ sync_runs / settings — DATA_MODEL §7 (operations) ============
 class SyncRun(Base):
     __tablename__ = "sync_runs"

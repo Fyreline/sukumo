@@ -27,6 +27,14 @@ os.environ.setdefault("SUKUMO_ENVIRONMENT", "test")
 os.environ["SUKUMO_MICHI_SERVICE_TOKEN"] = ""
 os.environ["SUKUMO_KAKEIBO_SERVICE_TOKEN"] = ""
 os.environ["SUKUMO_MISHKA_SERVICE_TOKEN"] = ""
+# Same reasoning for the notification bus (docs/phases/PHASE-5-notify.md):
+# the real .env's SUKUMO_NTFY_URL/SUKUMO_NTFY_TOPIC point at a live ntfy.sh
+# topic. Pinning them empty here means app.notify.send() is 'inbox-only,
+# never an error' by default for the whole suite — any test that wants to
+# exercise the real ntfy call path opts in explicitly with
+# settings.model_copy(update={...}) + @respx.mock, never the real network.
+os.environ["SUKUMO_NTFY_URL"] = ""
+os.environ["SUKUMO_NTFY_TOPIC"] = ""
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

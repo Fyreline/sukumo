@@ -5,6 +5,7 @@ import { ThemeToggle } from './components/ThemeToggle'
 import { VatMark } from './components/VatMark'
 import { BridgePage } from './pages/BridgePage'
 import { HabitsPage } from './pages/HabitsPage'
+import { NudgeInbox } from './pages/NudgeInbox'
 import { PeoplePage } from './pages/PeoplePage'
 import { SettingsPage } from './pages/SettingsPage'
 
@@ -14,12 +15,13 @@ import { SettingsPage } from './pages/SettingsPage'
  * variant, server-redacted) + Settings only; People/Habits are
  * primary-only surfaces (and the server 403s them anyway). */
 
-type Tab = 'bridge' | 'people' | 'habits' | 'settings'
+type Tab = 'bridge' | 'people' | 'habits' | 'nudges' | 'settings'
 
 const PRIMARY_TABS: { id: Tab; label: string }[] = [
   { id: 'bridge', label: 'Bridge' },
   { id: 'people', label: 'People' },
   { id: 'habits', label: 'Habits' },
+  { id: 'nudges', label: 'Nudges' },
   { id: 'settings', label: 'Settings' },
 ]
 const PARTNER_TABS: { id: Tab; label: string }[] = [
@@ -55,6 +57,20 @@ function TabIcon({ tab }: { tab: Tab }) {
         <svg viewBox="0 0 20 20" aria-hidden className={cls}>
           <circle cx="10" cy="10" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
           <path d="M7 10.5l2 2 4-4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )
+    case 'nudges':
+      // a bell — the coach's voice
+      return (
+        <svg viewBox="0 0 20 20" aria-hidden className={cls}>
+          <path
+            d="M10 3.2c-2.2 0-3.6 1.7-3.6 4v2.2c0 .9-.4 1.7-1.1 2.3l-.4.4h10.2l-.4-.4a3.1 3.1 0 0 1-1.1-2.3V7.2c0-2.3-1.4-4-3.6-4Z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+          <path d="M8.5 14.5a1.6 1.6 0 0 0 3 0" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       )
     case 'settings':
@@ -133,9 +149,15 @@ function AuthenticatedApp({ user }: { user: AuthUser }) {
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-5 pb-24 pt-6 sm:pb-10 sm:pt-8">
-        {tab === 'bridge' && <BridgePage onOpenPeople={user.role === 'primary' ? () => setTab('people') : undefined} />}
+        {tab === 'bridge' && (
+          <BridgePage
+            onOpenPeople={user.role === 'primary' ? () => setTab('people') : undefined}
+            onOpenNudges={user.role === 'primary' ? () => setTab('nudges') : undefined}
+          />
+        )}
         {tab === 'people' && user.role === 'primary' && <PeoplePage />}
         {tab === 'habits' && user.role === 'primary' && <HabitsPage />}
+        {tab === 'nudges' && user.role === 'primary' && <NudgeInbox />}
         {tab === 'settings' && <SettingsPage />}
       </main>
 

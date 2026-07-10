@@ -123,3 +123,33 @@ step. Never "you failed to", never streak-shaming, never more than one emoji. Th
 coach celebrates at least as often as it prompts (rules 10–11 and briefing wins exist
 for this reason). Templates live beside their rules and are reviewed as copy, not
 code, in Phase 6 acceptance.
+
+## 6. Away mode
+
+The coach must not poke at the gym/office/reading routine while Mack is on holiday —
+the calendar already knows (`coach/away.py`, born of the Spain low-movement nudge).
+
+- **Detection:** today (Europe/London) falls inside any ingested all-day
+  `calendar_events` row spanning ≥ `min_days` (default **3** — a two-night trip).
+  ICS all-day DTEND is **exclusive**: a 06→14 July holiday covers the 6th–13th; the
+  coach is back on the 14th. Settings key `away_detection`
+  (`{"min_days": 3, "exclude_titles": ["…substring…"]}`) tunes the floor and excludes
+  non-trip spans by case-insensitive title substring. When several qualifying events
+  cover today, the longest wins for the surfaced title/until.
+- **Override:** settings key `away_override`
+  (`{"away_until": "YYYY-MM-DD", "title": "…"}`) forces away through that date
+  (inclusive) regardless of the calendar — for the trip that never hit a feed.
+- **Suppression:** while away, the rules in settings key `away_suppressed_rules`
+  (default **gym-day, office-day, low-movement, reading**) are skipped at evaluate
+  time — no nudge rows, no expired rows, counted as `away` in the tick counts
+  (same accounting shape as `not_configured`). Everything else — briefing,
+  michi-streak-guard, birthday-gift, occasion-reminder, ops rules, goal-milestone,
+  japan-countdown — runs as normal: streaks and people don't pause for holidays.
+- **Briefing:** opens with "You're away — {title}. The coach is off your back until
+  you're home. ☀️" (title omitted gracefully when the event has none), and the
+  weather line is suppressed — it frames a Glasgow commute, meaningless abroad.
+  Calendar, occasion and Japan lines stay. The title follows the §3.5 person-name
+  precedent (calendar titles are fine in pushes) and still rides the runtime
+  redaction gate like every line.
+- **Dashboard:** the aggregate carries `away: {"title", "until"} | null` for both
+  roles — household-level and harmless.

@@ -115,7 +115,7 @@ def test_dashboard_full_aggregate_shape_for_primary(client):
     body = res.json()
 
     assert set(body) == {
-        "generated_at", "date", "role", "siblings", "japan",
+        "generated_at", "date", "role", "siblings", "japan", "away",
         "briefing", "vitals", "habits", "goal", "occasions",
         "memory_strip", "weather", "nudges_pending",
     }
@@ -216,7 +216,7 @@ def test_dashboard_partner_gets_slim_redacted_response(client):
     assert res.status_code == 200
     body = res.json()
 
-    assert set(body) == {"generated_at", "date", "role", "siblings", "japan"}
+    assert set(body) == {"generated_at", "date", "role", "siblings", "japan", "away"}
     assert body["role"] == "partner"
     for forbidden in ("goal", "occasions", "vitals", "habits", "memory_strip", "nudges_pending", "briefing", "weather"):
         assert forbidden not in body
@@ -283,3 +283,26 @@ def test_dashboard_reading_habit_carries_current_book(client):
     reading = next(h for h in body["habits"] if h["key"] == "reading")
     assert reading["current_book"]["title"] == "A Synthetic Book"
     assert reading["current_book"]["author"] == "N. O. Body"
+
+
+def test_dashboard_away_field_for_both_roles(client):
+    """COACH.md §6: the away chip data is household-level — null when home,
+    {"title", "until"} for BOTH roles when a qualifying all-day event covers
+    today. Uses real 'today' because the dashboard reads the live clock."""
+    from tests.coach_helpers import add_all_day_event
+
+    primary_id = make_user(email="mack@example.com", display_name="Mack", role="primary")
+    partner_id = make_user(email="amy@example.com", display_name="Amy", role="partner")
+
+    # home: away is null for both
+    assert client.get("/api/dashboard", headers=auth_headers(primary_id)).json()["away"] is None
+    assert client.get("/api/dashboard", headers=auth_headers(partner_id)).json()["away"] is None
+
+    # a 5-day synthetic trip covering today (DTEND exclusive)
+    start = (_today() - timedelta(days=1)).isoformat()
+    end_exclusive = (_today() + timedelta(days=4)).isoformat()
+    add_all_day_event(title="Somewhere with friends", start=start, end_exclusive=end_exclusive)
+
+    expected = {"title": "Somewhere with friends", "until": (_today() + timedelta(days=3)).isoformat()}
+    assert client.get("/api/dashboard", headers=auth_headers(primary_id)).json()["away"] == expected
+    assert client.get("/api/dashboard", headers=auth_headers(partner_id)).json()["away"] == expected

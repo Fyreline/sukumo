@@ -6,6 +6,8 @@ Strict order (COACH §1): **poll → evaluate → gate → deliver → record**.
   refresh, so rules read fresh snapshots (one agent, not two: ARCHITECTURE §2).
 - **evaluate**  every registered rule, ``(now, db) -> RuleResult``. A rule that
   is unconfigured/stale/disabled returns a skip status, counted, never a nudge.
+  While away (COACH §6) the suppressed local-routine rules are skipped before
+  they even run — counted as ``away``, writing no rows at all.
 - **gate**  per proposal, in order: dedupe_key already present → drop; per-rule
   cooldown after a *dismissed* nudge → drop; moment slept through past its
   expiry horizon → write ``expired``; daily cap reached → keep highest priority,
@@ -34,6 +36,7 @@ from .. import notify
 from ..config import Settings, get_settings
 from ..db import SessionLocal
 from ..models import Nudge, SyncRun
+from . import away as away_module
 from . import briefing as briefing_module
 from . import config as coach_config
 from .proposals import PRIORITY_RANK, NudgeProposal, Rule, utc_str
@@ -160,6 +163,7 @@ async def tick(session: Session, settings: Settings, now: datetime | None = None
         "inbox": 0,
         "capped_inbox": 0,
         "not_configured": 0,
+        "away": 0,
         "stale": 0,
         "disabled": 0,
         "error": 0,
@@ -184,13 +188,21 @@ async def tick(session: Session, settings: Settings, now: datetime | None = None
 
     effective = settings.model_copy(update={"quiet_hours": coach_config.quiet_hours(session, settings)})
 
-    # 2. Evaluate every rule.
+    # 2. Evaluate every rule. Away mode (COACH §6) gates evaluation itself:
+    #    a suppressed rule is skipped ENTIRELY while away — no nudge rows,
+    #    no expired rows — and counted as 'away', the same accounting shape
+    #    as not_configured. Everything else runs as normal.
+    away = away_module.away_status(session, now)
+    suppressed_while_away = coach_config.away_suppressed_rules(session) if away.away else set()
     proposals: list[NudgeProposal] = []
     briefing_stub: NudgeProposal | None = None
     for rule in load_rules():
         counts["evaluated"] += 1
         if not coach_config.rule_enabled(session, rule.key):
             counts["disabled"] += 1
+            continue
+        if rule.key in suppressed_while_away:
+            counts["away"] += 1
             continue
         result = rule.run(now, session)
         if result.status == "not_configured":

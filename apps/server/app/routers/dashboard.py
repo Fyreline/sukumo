@@ -27,10 +27,13 @@ assembly (docs/ARCHITECTURE.md §5.4). Sections:
                 with the coach (Phase 5/6), so the count is read defensively
                 and is 0 until then.
 - ``japan``     days_to_go from the ``japan_range`` settings key when set.
+- ``away``      away mode (COACH.md §6): null when home, else the detected
+                trip's title + last away day. Household-level, so both roles
+                get it.
 
 **Partner portal redaction is enforced HERE, server-side** (DESIGN §3,
 HANDOFF Q9): a ``role='partner'`` requester receives ONLY
-generated_at/date/role/siblings/japan — no vitals, habits, goal, occasions,
+generated_at/date/role/siblings/japan/away — no vitals, habits, goal, occasions,
 memory strip, briefing, weather or nudge sections AT ALL, not CSS-hidden.
 """
 from __future__ import annotations
@@ -408,6 +411,19 @@ def _briefing(session: Session, today: date) -> dict | None:
     return {"date": row.local_date, "content_md": row.content_md, "composed_by": row.composed_by}
 
 
+def _away(session: Session) -> dict | None:
+    """Away mode (COACH.md §6) — null when home, else the event title (may be
+    null) and the last away day. Household-level and harmless, so BOTH roles
+    receive it; the title is the same class of data as the calendar the
+    household already shares."""
+    from ..coach.away import away_status
+
+    status = away_status(session, datetime.now(timezone.utc))
+    if not status.away:
+        return None
+    return {"title": status.title, "until": status.until.isoformat() if status.until else None}
+
+
 def _japan(session: Session, today: date) -> dict | None:
     """Days to go from the ``japan_range`` settings key
     ({"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}). 0 while the trip is on;
@@ -448,6 +464,7 @@ async def dashboard(user_id: int = Depends(current_user), session: Session = Dep
             "role": role,
             "siblings": [s for s in _siblings(session) if s["app"] != "kakeibo"],
             "japan": _japan(session, today),
+            "away": _away(session),
         }
 
     return {
@@ -456,6 +473,7 @@ async def dashboard(user_id: int = Depends(current_user), session: Session = Dep
         "role": role,
         "siblings": _siblings(session),
         "japan": _japan(session, today),
+        "away": _away(session),
         "briefing": _briefing(session, today),  # composed by the coach (Phase 6)
         "vitals": _vitals(session, user_id, today),
         "habits": _habits(session, user_id, today),

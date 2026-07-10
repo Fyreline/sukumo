@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from app.coach.proposals import LONDON
 from app.db import SessionLocal
 from app.models import (
+    CalendarEvent,
     Habit,
     HabitEvent,
     HealthSample,
@@ -114,6 +115,25 @@ def add_setting(key: str, value) -> None:
             db.add(Setting(key=key, value_json=json.dumps(value)))
         else:
             row.value_json = json.dumps(value)
+        db.commit()
+
+
+def add_all_day_event(*, title: str | None, start: str, end_exclusive: str | None, uid: str | None = None) -> None:
+    """An all-day calendar_events row exactly as clients/calendar.py writes it:
+    bare ICS dates stored as 'YYYY-MM-DD 00:00:00', DTEND exclusive (may be
+    absent for single-day events)."""
+    with SessionLocal() as db:
+        db.add(
+            CalendarEvent(
+                ics_uid=uid or f"test:{title}:{start}",
+                starts_at=f"{start} 00:00:00",
+                ends_at=f"{end_exclusive} 00:00:00" if end_exclusive else None,
+                all_day=1,
+                title=title,
+                location=None,
+                calendar_name="test",
+            )
+        )
         db.commit()
 
 

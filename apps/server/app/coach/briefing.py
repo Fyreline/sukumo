@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from ..config import Settings
 from ..models import CalendarEvent, Habit, HabitEvent, Occasion, SiblingSnapshot
 from . import config as coach_config
+from .away import away_status
 from .proposals import LONDON, NudgeProposal, parse_utc
 
 
@@ -41,6 +42,16 @@ def _latest_ok_snapshot(session: Session, app: str) -> dict | None:
         return json.loads(snap.payload_json)
     except (ValueError, TypeError):
         return None
+
+
+def _away_line(title: str | None) -> str:
+    """The away-mode opener (COACH §6). The title comes from Mack's own
+    calendar — same precedent as person names in birthday pushes (COACH §3.5).
+    It still rides through ``notify.redact`` at delivery like every other
+    line, so a title carrying a figure gets stripped, never crashes."""
+    if title:
+        return f"You're away — {title.strip()}. The coach is off your back until you're home. ☀️"
+    return "You're away — the coach is off your back until you're home. ☀️"
 
 
 def _weather_line(session: Session, now: datetime) -> str | None:
@@ -207,7 +218,15 @@ def compose(
 
     sections: list[str] = [greeting]
 
-    weather = _weather_line(session, now)
+    # Away mode (COACH §6): the away line leads, and the weather line is
+    # suppressed — it frames a Glasgow commute, meaningless abroad. The
+    # calendar/occasion/japan sections below still run.
+    away = away_status(session, now)
+    away_line = _away_line(away.title) if away.away else None
+    if away_line:
+        sections.append(f"\n{away_line}")
+
+    weather = None if away.away else _weather_line(session, now)
     if weather:
         sections.append(f"\n{weather}")
 
@@ -247,7 +266,8 @@ def compose(
     content_md = "\n".join(sections).strip() + "\n"
 
     # push_body: the single most salient thing + a gentle count (COACH §5).
-    salient = weather or (nudge_lines[0][2:] if nudge_lines else None) or (cal[0][2:] if cal else None)
+    # While away, the away line IS the salient thing.
+    salient = away_line or weather or (nudge_lines[0][2:] if nudge_lines else None) or (cal[0][2:] if cal else None)
     noted = len(nudge_lines)
     if salient and noted:
         push_body = f"{salient} {noted} thing{'s' if noted != 1 else ''} noted for today."

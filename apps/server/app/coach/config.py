@@ -26,10 +26,15 @@ KEY_DISABLED_RULES = "coach_disabled_rules"
 KEY_OFFICE_PATTERN = "office_pattern"
 KEY_JAPAN_RANGE = "japan_range"
 KEY_LOW_MOVEMENT = "low_movement"  # {"step_threshold": N}
+KEY_AWAY_DETECTION = "away_detection"  # {"min_days": N, "exclude_titles": [..]}
+KEY_AWAY_OVERRIDE = "away_override"  # {"away_until": "YYYY-MM-DD", "title": "…"}
+KEY_AWAY_SUPPRESSED_RULES = "away_suppressed_rules"  # ["rule-key", ...]
 
-# --- the three doc-blessed defaults (COACH §2-3) — the only invented values --
+# --- the doc-blessed defaults (COACH §2-3, §6) — the only invented values ----
 DEFAULT_DAILY_CAP = 5
 DEFAULT_GYM_GAP_FLOOR_DAYS = 4
+DEFAULT_AWAY_MIN_DAYS = 3  # a multi-day trip = two nights or more (COACH §6)
+DEFAULT_AWAY_SUPPRESSED_RULES = ("gym-day", "office-day", "low-movement", "reading")
 
 
 def get_setting(session: Session, key: str, default=None):
@@ -93,3 +98,12 @@ def disabled_rules(session: Session) -> set[str]:
 
 def rule_enabled(session: Session, rule_key: str) -> bool:
     return rule_key not in disabled_rules(session)
+
+
+def away_suppressed_rules(session: Session) -> set[str]:
+    """The rule keys away mode silences (COACH §6) — the local-routine rules
+    by default; settings-overridable like every other knob."""
+    raw = get_setting(session, KEY_AWAY_SUPPRESSED_RULES, None)
+    if isinstance(raw, list):
+        return {str(x) for x in raw}
+    return set(DEFAULT_AWAY_SUPPRESSED_RULES)

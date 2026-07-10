@@ -373,6 +373,17 @@ def _occasions(session: Session, user_id: int, today: date) -> list[dict]:
 
 
 # ------------------------------------------------------------ memory strip --
+def _anniversary(session: Session, today: date) -> list[dict]:
+    """Today's "on this day" hits for the memory strip's fig line (MEMORY §4)
+    — date + years_ago only; the journal owns the full summary."""
+    from ..memory.assemble import anniversary
+
+    return [
+        {"local_date": h["local_date"], "years_ago": h["years_ago"]}
+        for h in anniversary(session, today.isoformat())
+    ]
+
+
 def _memory_strip(session: Session, today: date) -> list[dict]:
     dates = _series_dates(today, MEMORY_STRIP_DAYS)
     counts = {d: 0 for d in dates}
@@ -480,6 +491,7 @@ async def dashboard(user_id: int = Depends(current_user), session: Session = Dep
         "goal": _goal(session),
         "occasions": _occasions(session, user_id, today),
         "memory_strip": _memory_strip(session, today),
+        "anniversary": _anniversary(session, today),
         "weather": _weather(session),
         "nudges_pending": _nudges_pending(session),
     }

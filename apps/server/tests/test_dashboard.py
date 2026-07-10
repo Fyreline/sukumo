@@ -117,8 +117,9 @@ def test_dashboard_full_aggregate_shape_for_primary(client):
     assert set(body) == {
         "generated_at", "date", "role", "siblings", "japan", "away",
         "briefing", "vitals", "habits", "goal", "occasions",
-        "memory_strip", "weather", "nudges_pending",
+        "memory_strip", "anniversary", "weather", "nudges_pending",
     }
+    assert body["anniversary"] == []  # lookback hits need a past-year journal day
     assert body["role"] == "primary"
     assert body["briefing"] is None  # composes in Phase 6
 

@@ -5,6 +5,7 @@ docs/phases/PHASE-5-notify.md."""
 from __future__ import annotations
 
 from datetime import datetime
+
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -19,6 +20,11 @@ from app.models import Nudge, SyncRun
 from tests.conftest import make_user
 
 LONDON = ZoneInfo("Europe/London")
+
+# A fixed daytime instant for tests that assert immediate delivery — send()
+# defaults to the real clock, so running the suite inside quiet hours
+# (22:30-07:30) made these time-of-day flaky.
+NOON = datetime(2026, 7, 10, 12, 0, tzinfo=LONDON)
 
 
 def _configured_settings(**overrides):
@@ -38,6 +44,7 @@ async def test_send_is_inbox_only_and_never_an_error_when_ntfy_not_configured():
         result = await notify.send(
             db, settings, user_id=user_id, rule_key="bus:test", dedupe_key="dk-1",
             title="Sukumo bus check", body="wired up", priority="default",
+            now=NOON,
         )
     assert result["deduped"] is False
     assert result["status"] == "sent"
@@ -144,6 +151,7 @@ async def test_send_posts_to_ntfy_with_action_link_when_configured():
         result = await notify.send(
             db, settings, user_id=user_id, rule_key="bus:test", dedupe_key="dk-ntfy",
             title="Sukumo bus check", body="wired up", tags=["ops"],
+            now=NOON,
         )
     assert route.called
     sent_request = route.calls[0].request
@@ -165,6 +173,7 @@ async def test_send_marks_error_when_ntfy_publish_fails():
         result = await notify.send(
             db, settings, user_id=user_id, rule_key="bus:test", dedupe_key="dk-ntfy-fail",
             title="Sukumo bus check", body="wired up",
+            now=NOON,
         )
     assert result["ntfy"]["ok"] is False
 

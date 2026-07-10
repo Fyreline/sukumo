@@ -123,4 +123,5 @@ def away_status(session: Session, now: datetime) -> AwayStatus:
     if best is None:
         return AwayStatus.home()
     span_days, end_exclusive, title = best
-    return AwayStatus(away=True, title=title, until=end_exclusive - timedelta(days=1))
+    title = title.strip() if title else None
+    return AwayStatus(away=True, title=title or None, until=end_exclusive - timedelta(days=1))

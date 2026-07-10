@@ -13,6 +13,21 @@ sqlalchemy>=2.0
 # absence of an argon2 dependency here is the proof.
 pyjwt>=2.9
 
+# Calendar polling (docs/API.md §6, docs/ARCHITECTURE.md §1 clients/calendar.py):
+# icalendar (RFC 5545 parsing, handles Apple's published-feed quirks) +
+# recurring-ical-events (expands RRULE/EXDATE within a rolling window — the
+# `ics` package's recurrence support is weaker, so this pair was chosen
+# instead; docs/phases/PHASE-2-ingestion.md).
+icalendar>=6.0
+recurring-ical-events>=3.0
+
+# Phone-health payload date parsing (docs/API.md §2c) — Path A/Path B send a
+# handful of date formats (bare date, space-separated with offset, ISO
+# with offset); dateutil.parser handles all of them. Already a transitive
+# dep of icalendar, declared directly since app/ingest/health.py and
+# app/ingest/events.py import it.
+python-dateutil>=2.9
+
 # --- Dev / test ---
 pytest>=8.0
 respx>=0.21

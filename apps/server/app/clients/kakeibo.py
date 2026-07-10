@@ -2,6 +2,6 @@
 docs/phases/PHASE-3-siblings.md.
 
 docs/ARCHITECTURE.md §5.1 (hard rule): read-only — this module must never
-call ``.post``/``.put``/``.delete``. Empty scaffold — built out in Phase 3.
+issue a write HTTP verb (POST/PUT/DELETE). Empty scaffold — built out in Phase 3.
 """
 from __future__ import annotations

@@ -58,9 +58,28 @@ class Settings(BaseSettings):
     # SQLite lives in the project-level data/ folder (CWD-independent absolute path).
     database_url: str = f"sqlite:///{DATA_DIR / 'sukumo.db'}"
 
+    # --- docs/API.md §6 (ambient sources), docs/ARCHITECTURE.md §4. Comma-
+    # separated ICS subscription URLs; may be unset (poll_sources reports
+    # sync_runs status 'not_configured', never crashes). Not a pydantic
+    # list[str] field on purpose — that would parse the env var as JSON. ---
+    ics_urls: str = ""
+
+    # --- Weather (docs/API.md §6): Open-Meteo coords for home/office. Any or
+    # all may be unset — clients/weather.py + poll_sources.py handle that as
+    # 'not_configured', never a crash. PRIVATE values (ARCHITECTURE §5.5):
+    # .env only, never committed. ---
+    home_lat: float | None = None
+    home_lon: float | None = None
+    office_lat: float | None = None
+    office_lon: float | None = None
+
     @property
     def auth_configured(self) -> bool:
         return bool(self.jwt_secret)
+
+    @property
+    def ics_url_list(self) -> list[str]:
+        return [u.strip() for u in self.ics_urls.split(",") if u.strip()]
 
 
 @lru_cache

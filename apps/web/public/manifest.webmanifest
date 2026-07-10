@@ -1,0 +1,17 @@
+{
+  "name": "Sukumo",
+  "short_name": "Sukumo",
+  "description": "The household's self-hosted life dashboard and coach.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7fbfa",
+  "theme_color": "#f7fbfa",
+  "lang": "en-GB",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <!--
+    Sukumo placeholder app icon — the vat glyph (docs/DESIGN.md §2): a
+    minimal woodblock aigame (藍甕, indigo dye vat) seen from above. Full-bleed
+    maskable-safe: the paper background fills the whole canvas so an OS mask
+    (circle/squircle/rounded-square) never clips to transparency; the indigo
+    pool + clay hanko dot sit well inside the ~80% maskable safe zone.
+    Placeholder quality — Phase 4 replaces this with the real household mark.
+  -->
+  <rect width="192" height="192" fill="#f7fbfa" />
+  <circle cx="96" cy="96" r="58" fill="#254e70" />
+  <circle cx="146" cy="96" r="9" fill="#c33c54" />
+</svg>

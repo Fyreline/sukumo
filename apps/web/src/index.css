@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+/* Self-hosted fonts (docs/DESIGN.md §2, docs/phases/PHASE-1-scaffold.md) — no
+   Google Fonts CDN fetch at runtime. Variable-weight builds so one file
+   covers every weight the stack uses. Matches Michi's DESIGN choices
+   verbatim (docs/DESIGN.md §2), minus the Japanese-text font, which is
+   Michi-specific. */
+@import "@fontsource-variable/schibsted-grotesk";
+@import "@fontsource-variable/source-serif-4";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Colours + shadows live in the SHARED Aizome palette (canonical in
+   learningLanguageMachine, mirrored here — see theme.css header +
+   learningLanguageMachine/.claude/skills/theme-sync). Never hand-edit
+   theme.css directly. */
+@import "./theme.css";
+
+@theme {
+  /* type */
+  --font-display: "Schibsted Grotesk Variable", "Space Grotesk", Arial, sans-serif;
+  --font-serif: "Source Serif 4 Variable", Georgia, serif;
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+
+  /* radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+}
+
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "sukumo-web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd /Users/mack/Documents/Dev/sukumo/apps/web && VITE_API_BASE=http://127.0.0.1:8301 exec npm run dev"],
+      "port": 5179,
+      "autoPort": false
+    },
+    {
+      "name": "sukumo-api",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd /Users/mack/Documents/Dev/sukumo/apps/server && SUKUMO_DATABASE_URL=sqlite:////Users/mack/Documents/Dev/sukumo/data/sukumo.dev.db exec .venv/bin/python -m uvicorn app.main:app --reload --port 8301"],
+      "port": 8301,
+      "autoPort": false
+    }
+  ]
+}

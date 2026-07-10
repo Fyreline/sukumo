@@ -341,7 +341,8 @@ function DayCard({
           </span>
         </button>
 
-        <div className={`mt-2 ${thin ? 'text-ink-soft [&_p]:!text-xs' : ''}`}>
+        {/* thin days read quieter — smaller, lower contrast, still honest */}
+        <div className={`mt-2 ${thin ? '[&_p]:!text-xs [&_p]:!text-ink-soft' : ''}`}>
           <Markdown text={stripLeadingHeading(day.summary_md)} />
         </div>
 

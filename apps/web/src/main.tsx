@@ -11,7 +11,7 @@ import './index.css'
 // safe to enable unconditionally once built.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js', { type: 'module' }).catch(() => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { type: 'module' }).catch(() => {
       /* best-effort — a failed SW registration must never block the app */
     })
   })

@@ -15,10 +15,13 @@ declare const self: ServiceWorkerGlobalScope
 // Auth (`/api/auth/*`) and one-click nudge action links (`/api/nudges/act/*`)
 // are NEVER cached — the dashboard path is the ONLY /api path this worker
 // touches, allow-listed by exact pathname, and only 200s are stored.
-const SHELL_CACHE = 'sukumo-shell-v2'
+const SHELL_CACHE = 'sukumo-shell-v3'
 const API_CACHE = 'sukumo-api-v1'
 const KNOWN_CACHES = [SHELL_CACHE, API_CACHE]
-const SHELL_URLS = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon.svg']
+// The worker may be served from a subpath (GitHub Pages: /sukumo/sw.js), so
+// the shell is precached relative to wherever the worker actually lives.
+const BASE = new URL('.', self.location.href).pathname
+const SHELL_URLS = [BASE, `${BASE}index.html`, `${BASE}manifest.webmanifest`, `${BASE}icons/icon.svg`]
 const DASHBOARD_PATH = '/api/dashboard'
 
 self.addEventListener('install', (event) => {

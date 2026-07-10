@@ -127,7 +127,8 @@ code, in Phase 6 acceptance.
 ## 6. Away mode
 
 The coach must not poke at the gym/office/reading routine while Mack is on holiday —
-the calendar already knows (`coach/away.py`, born of the Spain low-movement nudge).
+the calendar already knows (`coach/away.py`, born of a real holiday's misplaced
+low-movement nudge on day one in production).
 
 - **Detection:** today (Europe/London) falls inside any ingested all-day
   `calendar_events` row spanning ≥ `min_days` (default **3** — a two-night trip).

@@ -302,6 +302,21 @@ class Nudge(Base):
     __table_args__ = (Index("idx_nudges_user_status", "user_id", "status"),)
 
 
+# ============ briefings — DATA_MODEL §4 (the morning digest) ================
+class Briefing(Base):
+    __tablename__ = "briefings"
+
+    # one row per local day (Europe/London) — the natural key, so a re-run of
+    # the coach tick upserts rather than duplicating (DATA_MODEL §4).
+    local_date: Mapped[str] = mapped_column(primary_key=True)  # 'YYYY-MM-DD'
+    content_md: Mapped[str] = mapped_column(nullable=False)
+    # 'rules' at v1 (composed by coach/briefing.py from the same proposal
+    # stream); 'llm' polish is HANDOFF Q10 (COACH.md §3.1).
+    composed_by: Mapped[str] = mapped_column(nullable=False, server_default=text("'rules'"))
+    sent_at: Mapped[str | None] = mapped_column(nullable=True)
+    created_at: Mapped[str] = mapped_column(nullable=False, server_default=NOW)
+
+
 # ============ sync_runs / settings — DATA_MODEL §7 (operations) ============
 class SyncRun(Base):
     __tablename__ = "sync_runs"

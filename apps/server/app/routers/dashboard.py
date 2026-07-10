@@ -49,6 +49,7 @@ from ..auth import current_user
 from ..db import get_session
 from ..models import (
     Book,
+    Briefing,
     GiftIdea,
     Habit,
     HabitEvent,
@@ -398,6 +399,15 @@ def _nudges_pending(session: Session) -> int:
         return 0
 
 
+def _briefing(session: Session, today: date) -> dict | None:
+    """Today's morning briefing (DATA_MODEL §4), composed by the coach's
+    briefing.py (COACH §3.1). Null until the coach has run today."""
+    row = session.get(Briefing, today.isoformat())
+    if row is None:
+        return None
+    return {"date": row.local_date, "content_md": row.content_md, "composed_by": row.composed_by}
+
+
 def _japan(session: Session, today: date) -> dict | None:
     """Days to go from the ``japan_range`` settings key
     ({"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}). 0 while the trip is on;
@@ -446,7 +456,7 @@ async def dashboard(user_id: int = Depends(current_user), session: Session = Dep
         "role": role,
         "siblings": _siblings(session),
         "japan": _japan(session, today),
-        "briefing": None,  # the coach starts composing in Phase 6
+        "briefing": _briefing(session, today),  # composed by the coach (Phase 6)
         "vitals": _vitals(session, user_id, today),
         "habits": _habits(session, user_id, today),
         "goal": _goal(session),

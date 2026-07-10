@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The coach tick LaunchAgent (docs/ARCHITECTURE.md §2, docs/DEPLOYMENT.md §3).
+  Phase 8 deploys this — DO NOT bootstrap it here. Standing household lessons
+  (DEPLOYMENT §3): invoke .venv/bin/python DIRECTLY (never a shell wrapper) or
+  macOS TCC prompts eat a ~/Documents-touching agent silently; logs to
+  ~/Library/Logs/sukumo/. StartInterval 900 = every 15 min (well under every
+  rule's quarter-hour timing tolerance, COACH.md §4).
+
+  Paths below assume the household layout (~/Documents/Dev/sukumo); adjust at
+  deploy time if the checkout lives elsewhere.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.sukumo.coach</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/mack/Documents/Dev/sukumo/apps/server/.venv/bin/python</string>
+        <string>/Users/mack/Documents/Dev/sukumo/apps/server/scripts/coach_tick.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/mack/Documents/Dev/sukumo/apps/server</string>
+
+    <key>StartInterval</key>
+    <integer>900</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/mack/Library/Logs/sukumo/coach.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/mack/Library/Logs/sukumo/coach.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

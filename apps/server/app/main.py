@@ -16,7 +16,7 @@ from .db import engine
 from .errors import register_error_handlers
 from .identity import MishkaIdentityClient
 from .models import Base
-from .routers import auth, dashboard, habits, health, ingest, notify, nudges, people, status
+from .routers import auth, dashboard, habits, health, ingest, notify, nudges, people, settings as settings_router, status
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -30,6 +30,12 @@ async def lifespan(app: FastAPI):
     # SQLite; tables created on startup (docs/ARCHITECTURE.md §4 — Alembic
     # only if a breaking change ever demands it).
     Base.metadata.create_all(engine)
+    # Discover coach rules at startup so their import side effects run — chiefly
+    # registering action callbacks (the reading rule's one-tap habit-event
+    # writer, COACH.md §3.3) so /api/nudges/act/{token} can find them.
+    from .coach.rules import load_rules
+
+    load_rules()
     logger.info("lifespan: tables ensured, Mishka base url = %s", settings.mishka_base_url)
     yield
 
@@ -66,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(habits.router, prefix="/api")
     app.include_router(people.router, prefix="/api")
     app.include_router(status.router, prefix="/api")
+    app.include_router(settings_router.router, prefix="/api")
 
     return app
 

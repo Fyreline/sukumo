@@ -73,6 +73,25 @@ class Settings(BaseSettings):
     office_lat: float | None = None
     office_lon: float | None = None
 
+    # --- Sibling read clients (docs/API.md §4, docs/phases/PHASE-3-siblings.md):
+    # one static service token per app, deliberately NOT the user-JWT flow —
+    # Sukumo never holds a household password for the siblings. Base URLs
+    # default to loopback at each app's own port (ARCHITECTURE §2's port
+    # ladder); an empty *_service_token is what makes a client
+    # 'not_configured' (never a crash — app/clients/*.py + poll_sources.py).
+    # Kakeibo's endpoint doesn't exist yet server-side as of this phase (its
+    # repo has unrelated in-flight work) — the client stays wired and stays
+    # 'not_configured' until KAKEIBO_SERVICE_TOKEN is set for real. Mishka's
+    # base URL is deliberately the SAME field identity.py already uses
+    # (mishka_base_url) — one app, one loopback address. ---
+    michi_base_url: str = "http://127.0.0.1:8100"
+    michi_service_token: str = ""
+
+    kakeibo_base_url: str = "http://127.0.0.1:8200"
+    kakeibo_service_token: str = ""
+
+    mishka_service_token: str = ""
+
     @property
     def auth_configured(self) -> bool:
         return bool(self.jwt_secret)

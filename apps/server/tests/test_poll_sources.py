@@ -1,8 +1,11 @@
 """scripts/poll_sources.py -- calendar full-window replace, weather
 snapshot + not_configured path, sync_runs everywhere
-(docs/phases/PHASE-2-ingestion.md build item 5, acceptance list)."""
+(docs/phases/PHASE-2-ingestion.md build item 5, acceptance list). The
+sibling clients (michi/kakeibo/mishka -- docs/phases/PHASE-3-siblings.md
+build item 4) reuse the exact same not_configured/error/ok shape."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -160,3 +163,172 @@ def test_run_habit_auto_evidence_delegates_to_app_habits():
     with SessionLocal() as db:
         result = poll_sources.run_habit_auto_evidence(db)
     assert result == {"habits_processed": 0, "events_written": 0}
+
+
+# ============ sibling clients (michi/kakeibo/mishka) -- PHASE-3 build item 4 ============
+
+
+@pytest.mark.anyio
+async def test_poll_michi_not_configured_when_no_token():
+    with SessionLocal() as db:
+        result = await poll_sources.poll_michi(db, _settings())
+    assert result["status"] == "not_configured"
+
+    from sqlalchemy import select
+
+    from app.models import SiblingSnapshot, SyncRun
+
+    with SessionLocal() as db:
+        run = db.scalar(select(SyncRun).where(SyncRun.source == "poll:michi"))
+        assert run.status == "not_configured"
+        assert db.scalar(select(SiblingSnapshot).where(SiblingSnapshot.app == "michi")) is None
+
+
+@pytest.mark.anyio
+async def test_poll_michi_writes_ok_snapshot_and_sync_run(monkeypatch):
+    from app.clients import michi as michi_client
+
+    async def _fake_fetch(settings, timeout: float = 3.0):
+        return {"streak_days": 5, "studied_today": True, "due_reviews": 2, "words_known": 90, "last_session_at": "2026-07-10 08:00:00"}
+
+    monkeypatch.setattr(michi_client, "fetch", _fake_fetch)
+
+    with SessionLocal() as db:
+        result = await poll_sources.poll_michi(db, _settings(michi_service_token="secret"))
+    assert result["status"] == "ok"
+
+    from sqlalchemy import select
+
+    from app.models import SiblingSnapshot, SyncRun
+
+    with SessionLocal() as db:
+        snapshot = db.scalar(select(SiblingSnapshot).where(SiblingSnapshot.app == "michi"))
+        assert snapshot is not None
+        assert snapshot.ok == 1
+        assert snapshot.latency_ms is not None
+        assert json.loads(snapshot.payload_json) == {
+            "streak_days": 5, "studied_today": True, "due_reviews": 2, "words_known": 90, "last_session_at": "2026-07-10 08:00:00"
+        }
+        run = db.scalar(select(SyncRun).where(SyncRun.source == "poll:michi"))
+        assert run.status == "ok"
+
+
+@pytest.mark.anyio
+async def test_poll_michi_writes_error_snapshot_on_fetch_failure(monkeypatch):
+    from app.clients import michi as michi_client
+
+    async def _fake_fetch(settings, timeout: float = 3.0):
+        raise RuntimeError("connection refused")
+
+    monkeypatch.setattr(michi_client, "fetch", _fake_fetch)
+
+    with SessionLocal() as db:
+        result = await poll_sources.poll_michi(db, _settings(michi_service_token="secret"))
+    assert result["status"] == "error"
+
+    from sqlalchemy import select
+
+    from app.models import SiblingSnapshot, SyncRun
+
+    with SessionLocal() as db:
+        snapshot = db.scalar(select(SiblingSnapshot).where(SiblingSnapshot.app == "michi"))
+        assert snapshot.ok == 0
+        assert snapshot.error == "connection refused"
+        assert snapshot.payload_json is None
+        run = db.scalar(select(SyncRun).where(SyncRun.source == "poll:michi"))
+        assert run.status == "error"
+        assert run.error == "connection refused"
+
+
+@pytest.mark.anyio
+async def test_poll_kakeibo_not_configured_when_no_token():
+    """Scope note: Kakeibo's own endpoint doesn't exist yet this phase, so
+    this always resolves not_configured with the default settings -- never
+    an error, per docs/API.md §4's fallback wording."""
+    with SessionLocal() as db:
+        result = await poll_sources.poll_kakeibo(db, _settings())
+    assert result["status"] == "not_configured"
+
+
+@pytest.mark.anyio
+async def test_poll_kakeibo_writes_ok_snapshot_when_mocked(monkeypatch):
+    from app.clients import kakeibo as kakeibo_client
+
+    async def _fake_fetch(settings, timeout: float = 3.0):
+        return {"goal_pence": 2000000, "saved_pence": 500000, "pct": 25.0, "pace_status": "on_track", "as_of": "2026-07-10 00:00:00"}
+
+    monkeypatch.setattr(kakeibo_client, "fetch", _fake_fetch)
+
+    with SessionLocal() as db:
+        result = await poll_sources.poll_kakeibo(db, _settings(kakeibo_service_token="secret"))
+    assert result["status"] == "ok"
+
+    from sqlalchemy import select
+
+    from app.models import SiblingSnapshot
+
+    with SessionLocal() as db:
+        snapshot = db.scalar(select(SiblingSnapshot).where(SiblingSnapshot.app == "kakeibo"))
+        assert snapshot.ok == 1
+
+
+@pytest.mark.anyio
+async def test_poll_mishka_not_configured_when_no_token():
+    with SessionLocal() as db:
+        result = await poll_sources.poll_mishka(db, _settings())
+    assert result["status"] == "not_configured"
+
+
+@pytest.mark.anyio
+async def test_poll_mishka_writes_ok_snapshot_when_mocked(monkeypatch):
+    from app.clients import mishka as mishka_client
+
+    async def _fake_fetch(settings, timeout: float = 3.0):
+        return {"recent": [{"title": "Paddington", "watched_at": "2026-07-09", "poster_url": None, "rating": 4.5}], "watchlist_count": 3}
+
+    monkeypatch.setattr(mishka_client, "fetch", _fake_fetch)
+
+    with SessionLocal() as db:
+        result = await poll_sources.poll_mishka(db, _settings(mishka_service_token="secret"))
+    assert result["status"] == "ok"
+
+    from sqlalchemy import select
+
+    from app.models import SiblingSnapshot
+
+    with SessionLocal() as db:
+        snapshot = db.scalar(select(SiblingSnapshot).where(SiblingSnapshot.app == "mishka"))
+        assert snapshot.ok == 1
+        assert json.loads(snapshot.payload_json)["watchlist_count"] == 3
+
+
+@pytest.mark.anyio
+async def test_sibling_snapshots_pruned_to_50_per_app(monkeypatch):
+    """DATA_MODEL §6: 'keep last N=50 per app, prune on insert.'"""
+    from app.clients import michi as michi_client
+    from sqlalchemy import select
+
+    from app.models import SiblingSnapshot
+
+    async def _fake_fetch(settings, timeout: float = 3.0):
+        return {"streak_days": 1, "studied_today": False, "due_reviews": 0, "words_known": 1, "last_session_at": None}
+
+    monkeypatch.setattr(michi_client, "fetch", _fake_fetch)
+
+    settings = _settings(michi_service_token="secret")
+    for _ in range(55):
+        with SessionLocal() as db:
+            await poll_sources.poll_michi(db, settings)
+
+    with SessionLocal() as db:
+        count = len(db.scalars(select(SiblingSnapshot).where(SiblingSnapshot.app == "michi")).all())
+        assert count == 50
+
+
+@pytest.mark.anyio
+async def test_run_includes_all_three_sibling_results():
+    with SessionLocal() as db:
+        result = await poll_sources.run(db)
+    assert result["michi"]["status"] == "not_configured"
+    assert result["kakeibo"]["status"] == "not_configured"
+    assert result["mishka"]["status"] == "not_configured"

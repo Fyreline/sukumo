@@ -3,12 +3,18 @@ snapshot ages + ingest-token liveness -- docs/DATA_MODEL.md #7,
 docs/phases/PHASE-2-ingestion.md build item 7. JWT-auth (the Dyehouse status
 tile reads this once logged in, docs/DESIGN.md #3.7).
 
-Phase 2 wires the sources it owns (ingest tokens, calendar/weather pollers,
-habit auto-evidence via poll_sources' own sync_runs rows); sibling-app rows
-('poll:michi' etc.) land in Phase 3 and simply show up here once those
-pollers start writing sync_runs -- no change needed in this router then.
+Phase 2 wired the sources it owns (ingest tokens, calendar/weather pollers,
+habit auto-evidence via poll_sources' own sync_runs rows). Phase 3
+(docs/phases/PHASE-3-siblings.md build item 5) adds the ``siblings`` section
+below: one row per household sibling app (michi/kakeibo/mishka -- NOT
+weather/calendar, which are ambient sources, not siblings) carrying its
+latest snapshot's ok/age/latency plus a ``consecutive_failures`` count. The
+generic ``snapshots`` list below is unchanged and still covers every
+sibling_snapshots app, siblings included.
 """
 from __future__ import annotations
+
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -19,6 +25,40 @@ from ..db import get_session
 from ..models import IngestToken, SiblingSnapshot, SyncRun
 
 router = APIRouter(tags=["status"])
+
+# The three household sibling apps (docs/API.md §4) -- deliberately excludes
+# 'weather'/'calendar', which are ambient sources with their own sync_runs
+# but no "is this household app up" question to answer.
+SIBLING_APPS = ("michi", "kakeibo", "mishka")
+
+
+def _age_seconds(fetched_at: str) -> int:
+    """fetched_at is a naive UTC '%Y-%m-%d %H:%M:%S' string (the siblings'
+    timestamp convention, DATA_MODEL preamble) -- age is just now minus that,
+    in whole seconds."""
+    fetched_dt = datetime.strptime(fetched_at, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    return int((datetime.now(timezone.utc) - fetched_dt).total_seconds())
+
+
+def _consecutive_failures(session: Session, app: str, limit: int = 50) -> int:
+    """Consecutive ok=0 sibling_snapshots rows for `app`, most-recent-first,
+    stopping at the first ok=1 row (or after `limit` rows -- DATA_MODEL §6
+    prunes each app to N=50 rows on insert, so that's the natural ceiling
+    anyway). Pure query over existing history -- no new state, per the phase
+    doc's build item 5.
+    """
+    rows = session.scalars(
+        select(SiblingSnapshot)
+        .where(SiblingSnapshot.app == app)
+        .order_by(SiblingSnapshot.fetched_at.desc(), SiblingSnapshot.id.desc())
+        .limit(limit)
+    ).all()
+    count = 0
+    for row in rows:
+        if row.ok:
+            break
+        count += 1
+    return count
 
 
 @router.get("/status")
@@ -67,4 +107,20 @@ async def status(user_id: int = Depends(current_user), session: Session = Depend
         for t in session.scalars(select(IngestToken).order_by(IngestToken.id))
     ]
 
-    return {"sync_runs": sync_runs, "snapshots": snapshots, "ingest_tokens": ingest_tokens}
+    siblings = [
+        {
+            "app": app,
+            "ok": bool(latest_snapshot[app].ok) if app in latest_snapshot else None,
+            "age_seconds": _age_seconds(latest_snapshot[app].fetched_at) if app in latest_snapshot else None,
+            "latency_ms": latest_snapshot[app].latency_ms if app in latest_snapshot else None,
+            "consecutive_failures": _consecutive_failures(session, app),
+        }
+        for app in SIBLING_APPS
+    ]
+
+    return {
+        "sync_runs": sync_runs,
+        "snapshots": snapshots,
+        "ingest_tokens": ingest_tokens,
+        "siblings": siblings,
+    }

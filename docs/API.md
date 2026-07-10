@@ -1,11 +1,11 @@
-# Honmaru — API surface & ingestion contracts
+# Sukumo — API surface & ingestion contracts
 
-Two halves: **§1–2** what Honmaru serves and accepts; **§3–6** every external contract it
-depends on. All Honmaru endpoints under `/api`, JSON, JWT bearer unless marked
+Two halves: **§1–2** what Sukumo serves and accepts; **§3–6** every external contract it
+depends on. All Sukumo endpoints under `/api`, JSON, JWT bearer unless marked
 *(ingest-token)* or *(open)*. Errors: `{"detail": {"code": "...", "message": "..."}}`,
 the sibling convention.
 
-## 1. Honmaru's own REST surface
+## 1. Sukumo's own REST surface
 
 ```
 POST /api/auth/login|refresh|logout   GET /api/auth/me       -- port of Michi (AUTH.md)
@@ -18,7 +18,7 @@ GET  /api/dashboard        -- THE aggregate: one response paints every bridge ti
                            -- server-composed from tables + latest snapshots; the SPA
                            --   does NO cross-source assembly (ARCHITECTURE §5.4)
 
-POST /api/ingest/health    (ingest-token) Health Auto Export webhook — §2
+POST /api/ingest/health    (ingest-token) phone health sync webhook — §2
 POST /api/ingest/event     (ingest-token) generic event — §3 (Shortcuts etc.)
 POST /api/notify           (ingest-token, scope notify) the household bus — §5
 
@@ -35,41 +35,55 @@ GET  /api/digests?kind=weekly
 GET  /api/status            -- sibling/source health: latest sync_runs + snapshot ages
 ```
 
-## 2. Health Auto Export → `POST /api/ingest/health`
+## 2. Phone health data → `POST /api/ingest/health`
 
-The iOS app **Health Auto Export — JSON+CSV** (paid tier) runs automations that POST
-Apple Health data to a REST endpoint on a schedule. Configuration on the phone (documented
-here because it *is* part of the contract): API Export → URL
-`https://honmaru-api.mishka-hub.com/api/ingest/health`, header
-`Authorization: Bearer <ingest token>`, format JSON, aggregation **daily** for metrics,
-plus workouts; schedule hourly (cheap; upserts make it idempotent).
+**Decision (2026-07-10): free-first.** For the record, because it was asked: iCloud —
+including iCloud+ — offers **no** route to Health data. Health syncs end-to-end
+encrypted between the user's own devices only; it never appears on iCloud.com and has
+no web API at any subscription tier. The manual Health-app "Export All Health Data"
+zip exists but is a hand-cranked XML dump, useless for automation. The two real
+options are below; the endpoint accepts **both** payloads (sniffed by shape) so the
+choice stays reversible.
 
-**2a. Assumed payload shape** (its documented export format):
+**2a. Path A (default, free): a Shortcuts health-sync automation.** iOS Shortcuts can
+query Apple Health on-device (*Find Health Samples* etc.) and POST the results with
+*Get Contents of URL* — no third-party app, no cost. Two personal automations (≈08:00
+and ≈21:00, "Run Immediately") run a shortcut that gathers yesterday's + today's
+daily aggregates (steps, active energy, resting HR, stand hours), sleep for last
+night, and recent workouts, then POSTs Sukumo's canonical shape:
 
 ```json
-{ "data": {
-    "metrics": [
-      { "name": "step_count", "units": "count",
-        "data": [ { "date": "2026-07-10 00:00:00 +0100", "qty": 8123 } ] },
-      { "name": "sleep_analysis", "units": "hr",
-        "data": [ { "date": "…", "asleep": 7.1, "inBed": 7.9, … } ] }
-    ],
-    "workouts": [
-      { "name": "Traditional Strength Training", "start": "…", "end": "…",
-        "duration": 3120, "activeEnergyBurned": { "qty": 310, "units": "kcal" },
-        "distance": { "qty": 0, "units": "km" } } ] } }
+{ "metrics": [ { "metric": "step_count", "date": "2026-07-10", "qty": 8123,
+                 "unit": "count" } ],
+  "workouts": [ { "name": "Traditional Strength Training", "start": "…", "end": "…",
+                  "duration_s": 3120, "kcal": 310, "distance_m": 0 } ] }
 ```
 
-> ⚠️ **Fixtures first, verify field spellings against a real export from Mack's phone in
-> Phase 2, and correct this section in the same commit** — exactly the Kakeibo Starling
-> discipline. The app's schema has drifted between versions; the ingester must log-and-
-> store unknown metric names rather than reject (DATA_MODEL §2).
+Headers: `Authorization: Bearer <ingest token>`, URL
+`https://sukumo-api.mishka-hub.com/api/ingest/health`.
 
-**2b. Mapping:** `ingest/health.py` holds ONE dict from HAE names → canonical metrics
-(`step_count→step_count`, `sleep_analysis→sleep_asleep/sleep_inbed` (two rows),
-`active_energy→active_energy`, …); workouts map by name → `wtype` slug with the raw name
-kept in `source`. Response: `{"accepted": n, "upserted": n, "unknown_metrics": [...]}`.
-Every call writes a `sync_runs` row — the freshness rule (COACH.md §3.8) watches it.
+> ⚠️ **Build the real shortcut on Mack's phone during Phase 2 and verify each sample
+> type is actually queryable with the aggregation needed** (steps/energy aggregate
+> cleanly; sleep and workouts may need a per-sample loop — acceptable, it's a dozen
+> rows/day). Document the final shortcut's steps in PRIVATE.md so it can be rebuilt on
+> a new phone. Known trade-off: Shortcuts automations need the phone to have been
+> unlocked around the scheduled time — twice-daily scheduling plus the 36h freshness
+> rule (COACH.md §3.8) absorbs this. If it proves flaky in the first weeks, fall to
+> Path B without server changes.
+
+**2b. Path B (fallback, paid): Health Auto Export — JSON+CSV** (~£10 premium tier),
+whose REST automation POSTs its own documented format — metrics/workouts wrapped in a
+`"data"` envelope with `{name, units, data:[{date, qty}]}` entries. The ingester
+detects the envelope and maps accordingly. Same ⚠️ as above if adopted: fixtures
+first, verify real field spellings, correct this section in the same commit (the
+Kakeibo Starling discipline).
+
+**2c. Mapping:** `ingest/health.py` holds ONE dict from payload names (canonical and
+HAE aliases) → canonical metrics (`sleep_analysis→sleep_asleep/sleep_inbed` (two
+rows), `active_energy→active_energy`, …); workouts map by name → `wtype` slug with
+the raw name kept in `source`. Unknown metrics stored verbatim, never rejected
+(DATA_MODEL §2). Response: `{"accepted": n, "upserted": n, "unknown_metrics": [...]}`.
+Every call writes a `sync_runs` row — the freshness rule watches it.
 
 ## 3. Generic events → `POST /api/ingest/event`
 
@@ -91,7 +105,7 @@ office geofence arrive/leave; a home-screen "📖 logged" one-tap; optionally a 
 
 Each sibling gains **one additive, read-only endpoint** behind a static service token
 (env on both sides, e.g. `MICHI_SERVICE_TOKEN`) — deliberately NOT the user-JWT flow, so
-Honmaru never holds Mack's password (Michi's own AUTH reasoning, applied one level up).
+Sukumo never holds Mack's password (Michi's own AUTH reasoning, applied one level up).
 Small PRs to each repo; shapes owned here so the clients and patches agree:
 
 ```
@@ -130,7 +144,7 @@ rewrite. HANDOFF Q6 confirms Mack's comfort with this sequencing.
 
 - **Weather — Open-Meteo** (keyless, free): daily forecast for home + office coords
   (.env), polled with the coach tick, snapshot-cached. Used by office-day rule + briefing.
-- **Calendar — ICS subscription URL(s)** (`HONMARU_ICS_URLS`): polled hourly with `ics`
+- **Calendar — ICS subscription URL(s)** (`SUKUMO_ICS_URLS`): polled hourly with `ics`
   parser, full-window replace per feed (DATA_MODEL §6). Google/Apple both export private
   ICS URLs; which calendars exist is HANDOFF Q3.
 - **Photos (memory engine):** if the household Mac has iCloud Photo Library synced,

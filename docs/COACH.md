@@ -1,4 +1,4 @@
-# Honmaru — The Coach
+# Sukumo — The Coach
 
 The reason this app exists (PLAN.md §1): a scheduled process that notices, encourages,
 and remembers — so Mack doesn't have to run his own life admin in his head. This doc is

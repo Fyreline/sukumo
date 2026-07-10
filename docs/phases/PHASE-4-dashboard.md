@@ -15,7 +15,7 @@ the Q8 seed session can happen.
    tokens), goal ring, streak cards with the hanko one-tap stamp animation, ops row,
    skeletons, per-tile stale degradation.
 4. Service worker: network-first `/api/dashboard` with last-good fallback + `stale`
-   chip; manifest + real keep icon (both scheme theme colours).
+   chip; manifest + the real aigame vat icon (both scheme theme colours).
 5. HabitsPage (config UI over Phase 2's endpoints) + SettingsPage shell.
 
 ## Acceptance
@@ -24,7 +24,7 @@ the Q8 seed session can happen.
 - [ ] Stop Michi → its tile greys with age, everything else lives.
 - [ ] Real data visible: yesterday's steps/sleep from the phone, a real workout in
       streaks, goal ring showing Kakeibo's live pct.
-- [ ] A2HS install on a real iPhone → standalone launch, keep icon correct in light
+- [ ] A2HS install on a real iPhone → standalone launch, vat icon correct in light
       and dark.
 - [ ] Reduced-motion honoured; VoiceOver reads sensible tile summaries; AA contrast
       spot-check on both schemes.

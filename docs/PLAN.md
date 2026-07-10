@@ -1,14 +1,17 @@
-# Honmaru — Build Plan
+# Sukumo — Build Plan
 
-**Codename: Honmaru** (本丸 — the innermost keep of a Japanese castle: the command post
-everything else defends and reports to). This is the app discussed as "Aizome HQ" — but
-*Aizome* is the household **palette's** name, shared by every app, so naming one app after
-it would be like naming a ship "Navy". Honmaru says what this app is: the keep at the
-centre of the household castle, where Mishka Hub, Michi, Kakeibo and the Japan dashboard
-all report in. Alternatives considered: *Tenshu* (天守, the keep's tower — close second,
-slightly harder to say), *Genkan* (玄関, entrance hall — too passive), *Butai* (舞台,
-stage — wrong metaphor). **If Mack prefers "Aizome HQ" it's a one-grep rename; asked in
-[HANDOFF.md](HANDOFF.md) Q13.**
+**Codename: Sukumo** (蒅 — indigo leaves harvested, dried and slow-fermented into the
+dye-stuff every aizome vat starts from; nothing gets its colour without it). Mack's own
+pick (2026-07-10, resolving [HANDOFF.md](HANDOFF.md) Q13), keeping the indigo-dyeing
+theme — *Aizome* itself stays the household palette's name, shared by every app. The
+metaphor is exact: this app takes the raw leaves of ordinary days — steps, study
+sessions, films, dates, photos — and quietly ferments them (nightly, literally, in the
+journal assembler) into the colour that runs through everything else: briefings, nudges,
+memories. It sits naturally beside Mishka (the cat), Michi (the path) and Kakeibo (the
+ledger). Alternatives considered and set aside: *Kon'ya* (紺屋, the dyehouse — good HQ
+energy but names a place, not a process), *Aigame* (藍甕, the dye vat — kept as the
+app's **glyph** instead, DESIGN.md §2), *Honmaru* (本丸, castle keep — the earlier
+working metaphor, retired).
 
 Docs-first (this suite), then phased implementation with explicit owners, same as Michi
 and Kakeibo. Model policy per household preference: **Sonnet for well-specified ports/
@@ -17,7 +20,7 @@ the dashboard visuals and final verification.** Every phase ends at its doc's ac
 criteria, independently verified by the orchestrator (run the code, not the report —
 subagent claims are not evidence).
 
-> ⚠️ **Standing disclaimer, repeated wherever health appears:** Honmaru *displays and
+> ⚠️ **Standing disclaimer, repeated wherever health appears:** Sukumo *displays and
 > summarises* data Mack's devices already record (Apple Health, workouts, sleep). It is
 > not a medical device, makes no diagnoses or predictions, and its nudges are lifestyle
 > reminders ("you haven't gymmed in 4 days"), never health advice. See COACH.md §0.
@@ -39,9 +42,9 @@ Mack's own framing:
   in 3 weeks, your gift vault is empty" — like the calm-competent AI companion out of a
   video game, minus the dystopia. Encouraging in tone, never nagging (caps, cooldowns
   and quiet hours are hard requirements, COACH.md §4).
-- **The keep unifies the castle.** Tiles for Michi's study streak, Kakeibo's house-goal
+- **One vat dyes the whole household.** Tiles for Michi's study streak, Kakeibo's house-goal
   number, Mishka Hub activity, Japan countdown — plus operational status of each
-  sibling's API, so Honmaru doubles as the household infra monitor.
+  sibling's API, so Sukumo doubles as the household infra monitor.
 - **A memory engine** that assembles each day from data already generated (photos,
   films logged, words learned, places, calendar) into a scrollable journal — with the
   **Japan trip (Sept 2026) as its inaugural, densest chapter**. This sets the only hard
@@ -54,7 +57,7 @@ Mack's own framing:
 > gym thresholds) live only in [PRIVATE.md](PRIVATE.md) (gitignored) and in runtime DB/
 > config — never in committed docs, seed data, or source.
 
-## 2. What Honmaru is (and is not)
+## 2. What Sukumo is (and is not)
 
 **Is:** a self-hosted life dashboard (PWA) + a scheduled "coach" process that ingests
 passive data, evaluates a rule catalogue, and delivers nudges to Mack's phone; a
@@ -74,7 +77,8 @@ controllable hardware yet.
 ## 3. Goals, ranked
 
 1. **Vitals without effort** — steps, sleep, workouts, stand/energy flowing in from
-   Health Auto Export with zero taps; freshness monitored, breakage nudged (ops rule).
+   the phone with zero taps (free Shortcuts health-sync automation, API.md §2 —
+   decided over paid exporters 2026-07-10); freshness monitored, breakage nudged.
 2. **The coach** — the rule catalogue of COACH.md §3 live: gym-gap, reading, Michi
    streak guard, birthday gift lead-time, office-day suggestion, morning briefing.
 3. **One dashboard** — the tab that's worth opening every morning: today's briefing,
@@ -85,7 +89,7 @@ controllable hardware yet.
    corner, entered rarely, surfaced by the coach at the right moment.
 6. **Notification bus** — one `notify()` pipe every household app/script can POST to
    (API.md §5), so Michi's LaunchAgent failing or Kakeibo spotting something odd gains
-   a voice through Honmaru rather than each app growing its own.
+   a voice through Sukumo rather than each app growing its own.
 
 ## 4. The doc suite (reading order for implementers)
 
@@ -93,7 +97,7 @@ controllable hardware yet.
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | repo layout, stack, ports, processes, PWA shell |
 | [DATA_MODEL.md](DATA_MODEL.md) | every table, uniqueness keys, retention |
-| [API.md](API.md) | Honmaru's REST surface + every ingestion contract (Health Auto Export payload, sibling read endpoints, ICS, weather, Shortcuts) |
+| [API.md](API.md) | Sukumo's REST surface + every ingestion contract (phone health payloads, sibling read endpoints, ICS, weather, Shortcuts) |
 | [AUTH.md](AUTH.md) | Mishka-identity proxy login (Michi's pattern), ingest tokens |
 | [COACH.md](COACH.md) | the rule engine: catalogue, scheduling, tone, caps, delivery |
 | [MEMORY.md](MEMORY.md) | journal assembly, sources, weekly digest, Japan mode |
@@ -108,7 +112,7 @@ controllable hardware yet.
 |---|---|---|
 | [1 — Scaffold](phases/PHASE-1-scaffold.md) | Sonnet | repo, web+server skeletons, auth port, theme mirror, dev servers |
 | [2 — Ingestion core](phases/PHASE-2-ingestion.md) | Sonnet | health webhook + storage, generic event ingest, sync_runs, freshness |
-| [3 — Siblings](phases/PHASE-3-siblings.md) | Sonnet | service-token read endpoints on Michi/Kakeibo/Mishka + Honmaru clients + status board |
+| [3 — Siblings](phases/PHASE-3-siblings.md) | Sonnet | service-token read endpoints on Michi/Kakeibo/Mishka + Sukumo clients + status board |
 | [4 — Dashboard v1](phases/PHASE-4-dashboard.md) | Fable | the bridge: tiles live off real ingested data, PWA installable |
 | [5 — Notify bus](phases/PHASE-5-notify.md) | Sonnet | `notify()` core, ntfy delivery, nudge inbox API + UI, action endpoints |
 | [6 — Coach](phases/PHASE-6-coach.md) | Opus | rule engine + catalogue + briefing composer + coach LaunchAgent |
@@ -123,6 +127,6 @@ must land **before 2026-09-10** (Japan). Everything else is pressure-free.
 - Mack opens the dashboard ≥5 mornings/week without forcing himself.
 - ≥3 coach nudges/week get *actioned* (not dismissed) — the encourage-don't-nag proof.
 - Zero manual entry needed for vitals/streak/goal tiles in normal operation.
-- A birthday passes with the gift bought ≥1 week early because Honmaru raised it.
+- A birthday passes with the gift bought ≥1 week early because Sukumo raised it.
 - The Japan journal exists day-by-day without either of them doing anything during
   the trip beyond living it and taking photos.

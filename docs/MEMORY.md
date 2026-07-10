@@ -1,4 +1,4 @@
-# Honmaru — Memory engine
+# Sukumo — Memory engine
 
 The zero-effort journal: days assemble themselves from data the household already
 generates; Mack's only optional input is a one-tap mood. Hard deadline: **assembly and

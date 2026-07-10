@@ -1,4 +1,4 @@
-# Honmaru — Design
+# Sukumo — Design
 
 The brief: **ukiyo-e meets mission control.** The Cyberpunk-companion fantasy delivered
 through the household's woodblock language — data-dense like a command bridge, but
@@ -9,13 +9,13 @@ desktop gets the same bridge with more columns.
 
 `apps/web/src/theme.css` is a **mirror** of the canonical Aizome palette
 (`learningLanguageMachine/apps/web/src/theme.css`). Phase 1 adds
-`DST_HONMARU="/Users/mack/Documents/Dev/honmaru/apps/web/src/theme.css"` to
+`DST_SUKUMO="/Users/mack/Documents/Dev/sukumo/apps/web/src/theme.css"` to
 `learningLanguageMachine/scripts/sync-theme.sh` and updates the canonical header's
-MIRRORS list. Semantic token names are frozen household-wide; Honmaru introduces **no
+MIRRORS list. Semantic token names are frozen household-wide; Sukumo introduces **no
 new tokens** — if a need appears, it's an edit to the canonical file synced everywhere.
 
 Usage grammar (consistent with siblings): paper ground; `ink` text; `clay` (hanko
-crimson) is *the* accent — coach moments, the keep glyph, primary actions; `sky` info +
+crimson) is *the* accent — coach moments, primary actions, the vat glyph's seal; `sky` info +
 partner accent; `olive` success/streaks-alive; `kraft` warnings/stale; `fig` occasions &
 affection (birthdays, memory hearts); `liquid` the connector — here it is the **thread**:
 the timeline line in the journal and the tile-connecting hairlines on the bridge.
@@ -24,10 +24,12 @@ tokens; verify every tile in both.
 
 ## 2. App identity
 
-Name on screen: **Honmaru** with the keep glyph — a minimal woodblock castle-keep mark
-in clay, doubling as PWA icon (maskable, paper ground). The cat appears here too:
-Mishka sits *on the keep roof* in the empty/loading states (household continuity, one
-cat, many jobs). Type: the household stack (match Michi's DESIGN choices verbatim).
+Name on screen: **Sukumo** with the **vat glyph** — a minimal woodblock *aigame*
+(藍甕, indigo dye vat) seen from above: a paper-white rim ring around a deep indigo
+pool, a small clay hanko dot at its edge. Doubles as the PWA icon (maskable, works on
+paper and night grounds). The cat appears here too: Mishka peers *into the vat* in the
+empty/loading states (household continuity, one cat, many jobs). Type: the household
+stack (match Michi's DESIGN choices verbatim).
 
 ## 3. The Bridge (`BridgePage`) — the morning tab
 
@@ -48,7 +50,7 @@ shimmer until it lands, cached-last-response shown instantly via service worker 
    bought ✓ in olive), tap → PeoplePage.
 6. **Memory strip** — last 7 day-dots on the liquid thread, sized by event_count,
    tap → journal day. Anniversary line when present ("one year since …", fig).
-7. **Castle status (Ops)** — one row per sibling + per source: green/kraft/clay dot,
+7. **Dyehouse status (Ops)** — one row per sibling + per source: green/kraft/clay dot,
    age, latency. The infra-monitor payoff; tap → `/api/status` detail with sync_runs.
 8. **Nudge inbox chip** — pending/snoozed count, tap → NudgeInbox.
 
@@ -66,7 +68,7 @@ motion — mission-control calm.
 ## 5. PWA shell
 
 `manifest.webmanifest`: standalone, portrait, paper/ink theme colours (both schemes),
-maskable keep icon set. Service worker: precache app shell, network-first for `/api`
+maskable vat icon set. Service worker: precache app shell, network-first for `/api`
 with last-good-response fallback (bridge must paint on the train), **never** cache
 auth or act endpoints. Install prompt: a quiet Settings row, not a nag banner. iOS
 A2HS tested through the tunnel domain in Phase 8 acceptance (16.4+ requirement met

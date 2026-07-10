@@ -1,4 +1,4 @@
-# Honmaru — Handoff: open questions
+# Sukumo — Handoff: open questions
 
 Read before building. **Blocking** = a phase can't reach acceptance without it; others
 have documented defaults that ship unless Mack overrides. Answer inline, tick the box.
@@ -18,9 +18,12 @@ have documented defaults that ship unless Mack overrides. Answer inline, tick th
 - [ ] **Q4 · Photos on the Mac (Phase 7).** Is iCloud Photo Library synced to the
   household Mac (Photos.app with full library)? Yes → osxphotos metadata ingest;
   No → photo lines drop from the journal v1 (counts could come later via Shortcuts).
-- [ ] **Q5 · Health Auto Export purchase (Phase 2, blocking).** The REST-API automation
-  sits behind its paid tier (~£10 one-off/premium). OK to buy on the household Apple
-  ID? (It's the entire vitals pipeline until the native companion exists.)
+- [x] **Q5 · Health pipeline cost.** *Answered 2026-07-10:* no free iCloud route
+  exists (Health data is E2E-encrypted device sync only — iCloud+ doesn't change
+  that), so v1 uses the **free Shortcuts health-sync automation** (API §2 Path A,
+  built and verified on-device in Phase 2). Health Auto Export (~£10) is the fallback
+  only if Path A proves unreliable; the eventual native companion app retires the
+  question entirely.
 - [ ] **Q6 · Notification channel comfort.** v1 = ntfy.sh public service, unguessable
   topic, redacted payloads (API §5). Comfortable? Alternatives: self-hosted ntfy
   (another daemon to run) or waiting for web-push. *Default: ntfy.sh as specced.*
@@ -38,11 +41,13 @@ have documented defaults that ship unless Mack overrides. Answer inline, tick th
 - [ ] **Q11 · Gym definition (Phase 6).** Which workout types count for gym-gap, and
   the gap threshold (specced default 3 days)? Also: does "a long walk counts" apply?
 - [ ] **Q12 · Geofence comfort.** Two iOS Shortcuts automations (arrive/leave office →
-  POST). Fine? (Runs on-device; Honmaru only ever sees the arrive/leave pings.)
+  POST). Fine? (Runs on-device; Sukumo only ever sees the arrive/leave pings.)
   *Default: yes, set up in Phase 8.*
-- [ ] **Q13 · The name.** Honmaru (PLAN.md header) vs "Aizome HQ" vs other. Rename is
-  cheap **before** Phase 1 mints ports/labels/hostname (`com.honmaru.*`,
-  `honmaru-api.mishka-hub.com`); expensive after.
+- [x] **Q13 · The name.** *Answered 2026-07-10:* **Sukumo** (蒅) — Mack's pick,
+  keeping the aizome/indigo-dyeing theme. Reasoning + considered alternatives
+  (Kon'ya, Aigame) in PLAN.md's header; the aigame vat survives as the app glyph
+  (DESIGN §2). Labels/hostname minted accordingly (`com.sukumo.*`,
+  `sukumo-api.mishka-hub.com`).
 
 ## Standing verification rule
 

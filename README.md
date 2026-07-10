@@ -1,8 +1,10 @@
-# Honmaru（本丸）
+# Sukumo（蒅）
 
-The household keep: a self-hosted life dashboard + coach. Passive data in (Apple
-Health, Michi, Kakeibo, Mishka Hub, calendar, weather) — one bridge to look at, one
-gentle nudge pipe out, and a journal that writes itself.
+Sukumo is the fermented indigo leaf every aizome dye vat starts from — and this app
+is the household's: a self-hosted life dashboard + coach. The raw leaves of ordinary
+days go in passively (Apple Health, Michi, Kakeibo, Mishka Hub, calendar, weather);
+out come one bridge worth opening every morning, one gentle nudge pipe to the phone,
+and a journal that ferments itself.
 
 **Status: docs-first planning complete (2026-07-10); implementation not started.**
 

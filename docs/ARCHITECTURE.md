@@ -1,4 +1,4 @@
-# Honmaru — Architecture
+# Sukumo — Architecture
 
 Deliberately the household shape: **Vite/React SPA + FastAPI + SQLite**, web static on
 GitHub Pages (or served locally), API on the household Mac behind the shared Cloudflare
@@ -10,7 +10,7 @@ coach) beside the API.
 ## 1. Repo layout
 
 ```
-honmaru/
+sukumo/
 ├── README.md
 ├── docs/                        # this suite; phases/ has per-phase build orders
 ├── apps/
@@ -18,14 +18,14 @@ honmaru/
 │   │   ├── index.html
 │   │   ├── public/
 │   │   │   ├── manifest.webmanifest   # PWA: name, icons, standalone display
-│   │   │   └── icons/                 # maskable icons, Aizome crimson keep glyph
+│   │   │   └── icons/                 # maskable icons, the aigame vat glyph (DESIGN §2)
 │   │   ├── vite.config.ts       # dev port 5179 (5173 Mishka, 5174 Michi, 5178 Kakeibo)
 │   │   └── src/
 │   │       ├── main.tsx
 │   │       ├── App.tsx          # route switch + shell + auth gate
 │   │       ├── sw.ts            # service worker: app-shell cache, never caches /api
 │   │       ├── theme.css        # MIRROR of Aizome canonical (DESIGN.md §1) — never hand-edit
-│   │       ├── auth.ts          # port of Michi's (key: honmaru_auth)
+│   │       ├── auth.ts          # port of Michi's (key: sukumo_auth)
 │   │       ├── api.ts           # fetch wrapper w/ bearer + 401 refresh retry (port)
 │   │       ├── pages/
 │   │       │   ├── BridgePage.tsx     # THE dashboard (DESIGN.md §3) — Fable-built
@@ -43,7 +43,7 @@ honmaru/
 │       │                        #   pyjwt, httpx, ics, apprise? NO — see §5 (httpx only)
 │       ├── app/
 │       │   ├── main.py          # app factory, CORS, routers
-│       │   ├── config.py        # env prefix HONMARU_ (see §4)
+│       │   ├── config.py        # env prefix SUKUMO_ (see §4)
 │       │   ├── db.py            # engine/session helpers (port)
 │       │   ├── models.py        # DATA_MODEL.md
 │       │   ├── security.py      # JWT access + rotating refresh (port of Michi's)
@@ -52,7 +52,7 @@ honmaru/
 │       │   ├── notify.py        # the notification bus core (API.md §5): channel
 │       │   │                    #   drivers ntfy (v1) + webpush (later), redaction rule
 │       │   ├── ingest/
-│       │   │   ├── health.py    # Health Auto Export payload → health_samples/workouts
+│       │   │   ├── health.py    # phone health payloads (Shortcuts/HAE, API.md §2) → samples/workouts
 │       │   │   └── events.py    # generic Shortcuts/scripts events → memory_events etc.
 │       │   ├── clients/         # thin read-only sibling clients (API.md §4)
 │       │   │   ├── michi.py     # study stats + streak
@@ -81,26 +81,26 @@ honmaru/
 │           ├── assemble_day.py  # nightly journal assembly entrypoint
 │           ├── backup_db.py     # port of Michi's (sqlite3 .backup(), WAL-safe)
 │           └── mint_ingest_token.py  # prints a new ingest token, stores hash
-├── data/                        # gitignored: honmaru.db, honmaru.dev.db, backups/
-└── .claude/launch.json          # honmaru-web 5179, honmaru-api 8301 (dev)
+├── data/                        # gitignored: sukumo.db, sukumo.dev.db, backups/
+└── .claude/launch.json          # sukumo-web 5179, sukumo-api 8301 (dev)
 ```
 
 ## 2. Processes & ports
 
 | Thing | Value |
 |---|---|
-| API prod | LaunchAgent `com.honmaru.api`, uvicorn `127.0.0.1:8300`, no `--reload` |
-| API dev | launch.json `honmaru-api`, port `8301`, `HONMARU_DATABASE_URL` → `data/honmaru.dev.db` |
-| Web dev | launch.json `honmaru-web`, port `5179` |
-| Coach | LaunchAgent `com.honmaru.coach`, `StartInterval 900` (15 min), runs `scripts/coach_tick.py` |
+| API prod | LaunchAgent `com.sukumo.api`, uvicorn `127.0.0.1:8300`, no `--reload` |
+| API dev | launch.json `sukumo-api`, port `8301`, `SUKUMO_DATABASE_URL` → `data/sukumo.dev.db` |
+| Web dev | launch.json `sukumo-web`, port `5179` |
+| Coach | LaunchAgent `com.sukumo.coach`, `StartInterval 900` (15 min), runs `scripts/coach_tick.py` |
 | Source poller | same tick (coach_tick calls poll first) — **one** agent, not two, fewer moving parts |
-| Journal assembly | LaunchAgent `com.honmaru.journal`, daily 02:30, `scripts/assemble_day.py` (yesterday) |
-| Backup | LaunchAgent `com.honmaru.backup`, daily 03:30, prune to 30 |
-| Tunnel hostname | `honmaru-api.mishka-hub.com` → `http://127.0.0.1:8300` |
+| Journal assembly | LaunchAgent `com.sukumo.journal`, daily 02:30, `scripts/assemble_day.py` (yesterday) |
+| Backup | LaunchAgent `com.sukumo.backup`, daily 03:30, prune to 30 |
+| Tunnel hostname | `sukumo-api.mishka-hub.com` → `http://127.0.0.1:8300` |
 | Web prod | GitHub Pages (Michi pattern) — HTTPS required for PWA install + later web-push ✓ |
 
 Port ladder for the record: Mishka 8000/5173 · Michi 8100/5174 · Kakeibo 8200/8201/5178 ·
-**Honmaru 8300/8301/5179**.
+**Sukumo 8300/8301/5179**.
 
 **Why the coach is a script, not an in-process scheduler:** a LaunchAgent tick is
 observable (`launchctl`, log files), survives API restarts independently, can't wedge the
@@ -110,10 +110,10 @@ idempotent and cheap; 15 min is well under every rule's timing tolerance (COACH.
 ## 3. Data flow (one picture)
 
 ```
-iPhone Health Auto Export ──POST /api/ingest/health──►┐
+iPhone Shortcuts health sync (API §2) ──POST /api/ingest/health──►┐
 iOS Shortcuts (office geofence, 1-tap read log) ──POST /api/ingest/event──►│
 Michi / Kakeibo / Mishka read APIs ◄──httpx (service token)── poll ──►│  SQLite
-ICS calendar feed(s) ◄── poll ──►│ honmaru.db
+ICS calendar feed(s) ◄── poll ──►│ sukumo.db
 Open-Meteo forecast ◄── poll ──►┘
                                                         │
         coach_tick (15 min): rules ──► nudges table ──► notify.py ──► ntfy → phones
@@ -121,7 +121,7 @@ Open-Meteo forecast ◄── poll ──►┘
         GET /api/dashboard ◄── BridgePage (PWA) — one request paints every tile
 ```
 
-## 4. Config (env prefix `HONMARU_`, pydantic-settings, `.env` gitignored)
+## 4. Config (env prefix `SUKUMO_`, pydantic-settings, `.env` gitignored)
 
 `DATABASE_URL`, `JWT_SECRET`, `MISHKA_BASE_URL` (identity), `MICHI_BASE_URL` +
 `MICHI_SERVICE_TOKEN`, `KAKEIBO_BASE_URL` + `KAKEIBO_SERVICE_TOKEN`,
@@ -132,7 +132,7 @@ Open-Meteo forecast ◄── poll ──►┘
 ## 5. Hard rules (grep-able acceptance items)
 
 1. **Read-only siblings:** `clients/*.py` contain no `.post/.put/.delete` except
-   `weather.py`/none — Honmaru never writes to a sibling.
+   `weather.py`/none — Sukumo never writes to a sibling.
    (`grep -rn "\.post\|\.put\|\.delete" app/clients/` → empty.)
 2. **No sensitive numbers in push payloads:** ntfy.sh is a third party until/unless
    self-hosted; notification text carries *categories, not values* ("morning briefing
@@ -141,7 +141,7 @@ Open-Meteo forecast ◄── poll ──►┘
    reviewed against this in Phase 5 acceptance.
 3. **Coach may only create nudges via the engine** (dedupe/caps/quiet-hours live there);
    no route or script calls `notify.send()` directly except the bus endpoint itself.
-4. **The SPA never talks to siblings** — only Honmaru's API does (CORS stays simple,
+4. **The SPA never talks to siblings** — only Sukumo's API does (CORS stays simple,
    tokens stay server-side).
 5. **PRIVATE data** (coordinates, birthdays seeded, thresholds) enters via `.env` or the
    DB — a committed file containing a birthday or a coordinate is a build failure.

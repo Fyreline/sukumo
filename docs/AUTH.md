@@ -1,22 +1,22 @@
-# Honmaru — Auth
+# Sukumo — Auth
 
 Michi's pattern, verbatim in spirit: **one household credential store — Mishka Hub's.**
-Honmaru never stores, hashes, or sees a hash of a password.
+Sukumo never stores, hashes, or sees a hash of a password.
 
 ## 1. Interactive login (humans, the PWA)
 
 `POST /api/auth/login` proxies the email/password to
-`{HONMARU_MISHKA_BASE_URL}/api/auth/login` (httpx, 5s timeout); on 200 it upserts the
-local `users` row from the returned `{id, email, display_name}` and issues **Honmaru's
+`{SUKUMO_MISHKA_BASE_URL}/api/auth/login` (httpx, 5s timeout); on 200 it upserts the
+local `users` row from the returned `{id, email, display_name}` and issues **Sukumo's
 own** JWT access + rotating refresh tokens (`security.py` is a port of Michi's,
 including the refresh-reuse tripwire). 401/429 pass through with the same shape;
 connection failure → 503 `identity_unavailable`. Sessions are fully independent of
 Mishka after login — its restarts don't log anyone out here.
 
 Port checklist (files named in ARCHITECTURE §1): `security.py`, `identity.py`,
-`routers/auth.py`, web `auth.ts` (storage key `honmaru_auth`) + `api.ts` 401-refresh
+`routers/auth.py`, web `auth.ts` (storage key `sukumo_auth`) + `api.ts` 401-refresh
 retry. The only delta from Michi: on first login, `role` is set `primary` for the email
-matching `HONMARU_PRIMARY_EMAIL`, else `partner` — the coach only nudges `primary` at
+matching `SUKUMO_PRIMARY_EMAIL`, else `partner` — the coach only nudges `primary` at
 v1 (HANDOFF Q9 decides Amy's experience later).
 
 ## 2. Why not the alternatives
@@ -27,7 +27,7 @@ copy/sync (drift), no cross-app DB reads (locking, coupling), no shared JWT secr
 
 ## 3. Ingest tokens (machines)
 
-Everything that can't do a login flow — Health Auto Export, Shortcuts, sibling scripts
+Everything that can't do a login flow — the health-sync Shortcut, other Shortcuts, sibling scripts
 posting to the bus — authenticates with a **long-lived bearer token**: minted by
 `scripts/mint_ingest_token.py` (prints raw once, stores sha256; DATA_MODEL §1), sent as
 `Authorization: Bearer …`, checked by an `ingest_token` dependency that also stamps

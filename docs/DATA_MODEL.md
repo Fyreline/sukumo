@@ -1,6 +1,6 @@
-# Honmaru — Data model
+# Sukumo — Data model
 
-SQLite via SQLAlchemy, WAL mode, `data/honmaru.db`. Conventions as siblings: integer PKs,
+SQLite via SQLAlchemy, WAL mode, `data/sukumo.db`. Conventions as siblings: integer PKs,
 `created_at`/`updated_at` UTC ISO strings, all *local* semantics (dates, quiet hours)
 computed in **Europe/London** at use time, never baked into storage. Idempotency is the
 theme: every passive source has a natural key so re-delivery upserts instead of
@@ -29,7 +29,7 @@ health_samples   id, user_id, metric, ts_start, ts_end, value REAL, unit, source
                  UNIQUE(user_id, metric, ts_start, source)
                  -- metric: canonical snake_case ('step_count','sleep_asleep',
                  --   'active_energy','resting_heart_rate','stand_hours', …) mapped
-                 --   from Health Auto Export names in ingest/health.py (API.md §2b);
+                 --   from phone payload names in ingest/health.py (API.md §2c);
                  --   unknown metrics stored verbatim, never dropped
 workouts         id, user_id, wtype, ts_start, ts_end, duration_s, kcal, distance_m,
                  source, provider_uid, UNIQUE(user_id, provider_uid, source)
@@ -126,7 +126,7 @@ settings         key PK, value_json  -- quiet hours override, caps, channel choi
 ## 8. Retention
 
 SQLite with daily `.backup()` (WAL-safe) pruned to 30 — the Kakeibo/Michi pattern.
-`health_samples` at minute granularity is the only unbounded-ish table; Health Auto
-Export will be configured for **daily aggregates + workouts** (API.md §2), which keeps
+`health_samples` at minute granularity is the only unbounded-ish table; the phone
+sync sends **daily aggregates + workouts** (API.md §2, either path), which keeps
 row counts trivial (≈10 metrics × 365 days). If minute-level ever lands, aggregate to
 daily on ingest and discard raw — revisit only with a real need.

@@ -72,7 +72,9 @@ thinly, DATA_MODEL.md §6).
 background sync, lock-screen widgets, Live Activities) — web/PWA first; the $99 Apple
 Developer licence is the price of that later phase, TestFlight covers both household
 phones when it comes. Home-control (Home Assistant frontend) — shelved, not enough
-controllable hardware yet.
+controllable hardware yet. Also parked for v2 (from the HANDOFF answers): book
+recommendations riding the reading history (Mishka-style, Q1), and the Windows
+film-scan photo folder as a journal source (Q4).
 
 ## 3. Goals, ranked
 

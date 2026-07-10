@@ -43,7 +43,7 @@ shimmer until it lands, cached-last-response shown instantly via service worker 
    a 14-day sparkline. Neutral display, no targets colouring except streak-linked ones.
 3. **Streaks** — habit cards: name, flame/state, gap phrasing ("last: yesterday"),
    auto habits show their evidence source icon; tap habits (reading) show the big
-   one-tap log button.
+   one-tap log button plus the current book's title (books table, HANDOFF Q1).
 4. **House goal** — Kakeibo pct ring + pace label + "as of" age. Numbers visible here
    (it's the authed app, not a push).
 5. **People** — next occasions inside 45 days, lead-status pill (gift: none/ideas/
@@ -56,6 +56,11 @@ shimmer until it lands, cached-last-response shown instantly via service worker 
 
 Tiles degrade independently — a dead sibling greys its tile with the stale age; the
 bridge never blanks because one source is down (mirrors ARCHITECTURE §5.6 honesty).
+
+**Partner portal (HANDOFF Q9):** `role=partner` lands on a slim bridge variant —
+her Michi streak, Mishka recents, Japan countdown, and link-outs to the household
+apps. No coach, no nudges, no finance or people/occasion tiles at v1 (the occasion
+privacy flag, DATA_MODEL §3, must exist before that ever changes — PRIVATE §2 ⚠️).
 
 ## 4. Motion & feel
 

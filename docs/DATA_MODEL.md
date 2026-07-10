@@ -43,6 +43,11 @@ habit_events     id, habit_id, local_date, value REAL DEFAULT 1, source
                  UNIQUE(habit_id, local_date, source)
                  -- 'auto' rows are re-derived (delete+rebuild per day) from evidence;
                  --   'tap'/'coach_confirm' rows are human signals and never rebuilt over
+books            id, title, author NULLABLE, status ('reading'|'finished'|'abandoned'),
+                 started_on, finished_on NULLABLE, notes NULLABLE
+                 -- the reading habit's companion (HANDOFF Q1): the current read shows
+                 --   on the streak card; finishing one writes a memory_events
+                 --   milestone. Recommendations are v2 — the history accrues now.
 ```
 
 Streak/gap maths is computed in queries off `habit_events`, not stored — no counter to
@@ -55,7 +60,8 @@ material-difference law, PLAN.md §1).
 people           id, name, relation, birthday DATE NULLABLE, notes, archived BOOL
 occasions        id, person_id NULLABLE, title, month_day ('09-22') or date DATE
                  (one of the two: recurrence 'yearly'|'once'), lead_days INT DEFAULT 21,
-                 kind ('birthday'|'anniversary'|'event'|'deadline')
+                 kind ('birthday'|'anniversary'|'event'|'deadline'),
+                 private_to_user INT NULLABLE FK users.id  -- surprise guard, see below
                  -- birthdays auto-materialise one occasion per person with a birthday;
                  --   handled in people router, not by trigger magic
 gift_ideas       id, person_id, idea, url NULLABLE, price_pence NULLABLE,
@@ -63,7 +69,11 @@ gift_ideas       id, person_id, idea, url NULLABLE, price_pence NULLABLE,
 ```
 
 Real names/birthdays are **data**, entered through the UI into the DB (backed up
-locally) — they never appear in the repo. Seed checklist in PRIVATE.md.
+locally) — they never appear in the repo. Seed checklist in PRIVATE.md. Import
+assist (HANDOFF Q8): PeoplePage suggests candidates from `calendar_events` whose
+titles look like birthdays; every candidate is confirmed by hand — nothing
+auto-creates a person. Occasions carry a `private_to_user` flag (nullable FK) —
+required before the partner portal may ever render occasion data (PRIVATE §2 ⚠️).
 
 ## 4. Coach
 

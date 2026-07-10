@@ -23,7 +23,9 @@ POST /api/ingest/event     (ingest-token) generic event — §3 (Shortcuts etc.)
 POST /api/notify           (ingest-token, scope notify) the household bus — §5
 
 GET/POST/PATCH /api/habits, /api/habits/{id}/events   -- config + the 1-tap log
-GET/POST/PATCH /api/people, /api/occasions, /api/gifts
+GET/POST/PATCH /api/books                              -- current read + history (Q1)
+GET/POST/PATCH /api/people, /api/occasions, /api/gifts -- incl. calendar-import
+                                                       --   candidates (DATA_MODEL §3)
 GET  /api/nudges?status=…             POST /api/nudges/{id}/snooze|dismiss|action
 GET  /api/nudges/act/{token}          (open) one-click action link used INSIDE ntfy
                                       -- signed single-use token, marks actioned;
@@ -145,8 +147,12 @@ rewrite. HANDOFF Q6 confirms Mack's comfort with this sequencing.
 - **Weather — Open-Meteo** (keyless, free): daily forecast for home + office coords
   (.env), polled with the coach tick, snapshot-cached. Used by office-day rule + briefing.
 - **Calendar — ICS subscription URL(s)** (`SUKUMO_ICS_URLS`): polled hourly with `ics`
-  parser, full-window replace per feed (DATA_MODEL §6). Google/Apple both export private
-  ICS URLs; which calendars exist is HANDOFF Q3.
+  parser, full-window replace per feed (DATA_MODEL §6). This household's feeds
+  (HANDOFF Q3): Mack's personal Apple calendar + the shared couple calendar (private
+  ICS URLs → PRIVATE §3; the shared one is young and incomplete — rules must not
+  assume completeness) + a free public bank-holiday ICS matching the employer's
+  observed holidays (which feed: PRIVATE §3). The work calendar itself is not
+  exportable — rule 6 leans on patterns and geofence history instead.
 - **Photos (memory engine):** if the household Mac has iCloud Photo Library synced,
   `osxphotos` reads metadata (timestamps, locations, counts — no image uploads anywhere)
   during nightly assembly; MEMORY.md §2. HANDOFF Q4 gates this.

@@ -9,14 +9,18 @@ the Q8 seed session can happen.
    daily aggregates + 14-day series, habit states with gap maths, latest sibling
    snapshots with ages, occasions window, memory strip counts (empty until Phase 7 —
    render the thread anyway), pending nudge count (0 until Phase 6).
-2. People/occasions/gifts models + routers + PeoplePage (add/edit, lead-days,
-   gift vault with status flow).
+2. People/occasions/gifts + books models + routers; PeoplePage (add/edit, lead-days,
+   gift vault with status flow, "suggest from calendar" birthday import —
+   DATA_MODEL §3, incl. the `private_to_user` occasion flag).
 3. BridgePage + tiles per DESIGN §3–4: sparklines (shared SVG primitives, viz
    tokens), goal ring, streak cards with the hanko one-tap stamp animation, ops row,
    skeletons, per-tile stale degradation.
 4. Service worker: network-first `/api/dashboard` with last-good fallback + `stale`
    chip; manifest + the real aigame vat icon (both scheme theme colours).
-5. HabitsPage (config UI over Phase 2's endpoints) + SettingsPage shell.
+5. HabitsPage (config UI over Phase 2's endpoints + current-book control) +
+   SettingsPage shell.
+6. Partner portal: `role=partner` renders the slim bridge variant (DESIGN §3) —
+   no coach/finance/occasion tiles.
 
 ## Acceptance
 - [ ] Cold load on iPhone-width: one dashboard request, skeleton → painted < 1s local;
@@ -26,6 +30,10 @@ the Q8 seed session can happen.
       streaks, goal ring showing Kakeibo's live pct.
 - [ ] A2HS install on a real iPhone → standalone launch, vat icon correct in light
       and dark.
+- [ ] Partner-role login renders the slim portal — verify no finance, people or
+      occasion data reaches that response (server-side check, not CSS hiding).
+- [ ] Calendar import surfaces a fixtured "…'s birthday" event as a candidate;
+      confirming creates the person + yearly occasion.
 - [ ] Reduced-motion honoured; VoiceOver reads sensible tile summaries; AA contrast
       spot-check on both schemes.
 - [ ] pytest + typecheck + build green (paste output).

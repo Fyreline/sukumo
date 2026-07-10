@@ -1,53 +1,76 @@
 # Sukumo — Handoff: open questions
 
-Read before building. **Blocking** = a phase can't reach acceptance without it; others
-have documented defaults that ship unless Mack overrides. Answer inline, tick the box.
+All thirteen questions answered 2026-07-10 (Mack's answers paraphrased here; personal
+specifics moved to [PRIVATE.md](PRIVATE.md) per the redaction pattern). Two carry
+follow-up **actions** rather than blockers. The doc suite has been updated to match —
+this file is now the decision record.
 
-- [ ] **Q1 · Reading source (Phase 2/6).** How do you actually read — Kindle, physical,
-  both? Kindle has no clean API; default plan is the honest one-tap (Shortcut/ntfy
-  action, COACH §3.3). Is one tap per session acceptable, or should reading be a
-  briefing-only gentle theme with no tracking at all? *Default: one-tap.*
-- [ ] **Q2 · Office-day inputs (Phase 6, blocking for rule 6).** What actually decides
-  a good office day? Team/anchor days? Specific meetings in calendar? A per-week
-  target? How do you commute, and does weather genuinely matter? (Answers → PRIVATE.md
-  §3 + rule config.)
-- [ ] **Q3 · Calendar (Phase 2, blocking for calendar ingest).** Google or Apple
-  calendar household? Can you produce private ICS URLs for the calendars that matter
-  (personal + work if allowed — work calendars often forbid export; if so, say so and
-  rule 6 leans on patterns instead)?
-- [ ] **Q4 · Photos on the Mac (Phase 7).** Is iCloud Photo Library synced to the
-  household Mac (Photos.app with full library)? Yes → osxphotos metadata ingest;
-  No → photo lines drop from the journal v1 (counts could come later via Shortcuts).
-- [x] **Q5 · Health pipeline cost.** *Answered 2026-07-10:* no free iCloud route
-  exists (Health data is E2E-encrypted device sync only — iCloud+ doesn't change
-  that), so v1 uses the **free Shortcuts health-sync automation** (API §2 Path A,
-  built and verified on-device in Phase 2). Health Auto Export (~£10) is the fallback
-  only if Path A proves unreliable; the eventual native companion app retires the
-  question entirely.
-- [ ] **Q6 · Notification channel comfort.** v1 = ntfy.sh public service, unguessable
-  topic, redacted payloads (API §5). Comfortable? Alternatives: self-hosted ntfy
-  (another daemon to run) or waiting for web-push. *Default: ntfy.sh as specced.*
-- [ ] **Q7 · Sibling patches approval (Phase 3).** Green-light three small read-only
-  PRs: Michi `/api/stats/service`, Kakeibo `/api/goal/service`, Mishka
-  `/api/activity/service` (API §4 shapes)? They're additive and token-gated.
-- [ ] **Q8 · Seed data session.** 30 minutes with the PeoplePage when Phase 4 lands:
-  birthdays, occasions, lead-days, first gift ideas. (List to gather: PRIVATE.md §2.)
-- [ ] **Q9 · Amy at v1.** She *can* log in (shared identity) — should the bridge show
-  a partner view (her Michi streak?), and does she want any nudges? *Default v1:
-  coach nudges primary only; bridge is Mack-centric; revisit post-ship.*
-- [ ] **Q10 · LLM briefing polish.** Rules-composed briefing v1 (deterministic, free).
-  Later: an LLM pass for warmth via API key or a Claude scheduled task (the Kakeibo
-  §98 pattern). Worth it, and which mechanism? *Default: rules-only v1.*
-- [ ] **Q11 · Gym definition (Phase 6).** Which workout types count for gym-gap, and
-  the gap threshold (specced default 3 days)? Also: does "a long walk counts" apply?
-- [ ] **Q12 · Geofence comfort.** Two iOS Shortcuts automations (arrive/leave office →
-  POST). Fine? (Runs on-device; Sukumo only ever sees the arrive/leave pings.)
-  *Default: yes, set up in Phase 8.*
-- [x] **Q13 · The name.** *Answered 2026-07-10:* **Sukumo** (蒅) — Mack's pick,
-  keeping the aizome/indigo-dyeing theme. Reasoning + considered alternatives
-  (Kon'ya, Aigame) in PLAN.md's header; the aigame vat survives as the app glyph
-  (DESIGN §2). Labels/hostname minted accordingly (`com.sukumo.*`,
-  `sukumo-api.mishka-hub.com`).
+- [x] **Q1 · Reading source.** Physical books. One-tap logging confirmed acceptable;
+  the real priority is *keeping the habit alive*, tracking is secondary. Added: a
+  lightweight `books` table (current read shows on the streak card; finishing one
+  becomes a journal milestone — DATA_MODEL §2). Mishka-style book recommendations are
+  parked for v2, once reading history has accumulated.
+- [x] **Q2 · Office-day inputs.** Answered; the weekly pattern (habitual days,
+  aspirational days he tends to skip, and which day is the known laziness risk) lives
+  in PRIVATE.md §3. Rule 6 config gains a *target pattern* with habitual vs
+  aspirational days — the coach leans encouraging on the aspirational ones. Pattern
+  moves week to week; it's a default aim, not a contract.
+- [x] **Q3 · Calendar.** Apple household. Work calendar is NOT exportable — rule 6
+  leans on patterns + the geofence history; the employer observes a standard public
+  bank-holiday calendar (which one + its free ICS feed: PRIVATE.md §3), which Sukumo
+  subscribes to so rule 6 skips holidays. There's also a **shared couple calendar**
+  (young — only started recently, incomplete; rules must not assume completeness).
+  **→ ACTION (Mack, before Phase 2 acceptance): generate private ICS URLs for the
+  personal + shared Apple calendars → PRIVATE.md §3.**
+- [x] **Q4 · Photos on the Mac.** Unknown — iCloud Photos is on for the phone
+  (optimised storage), household-Mac state unverified. **→ ACTION (Phase 7, first
+  build item): check Photos.app on the household Mac**; osxphotos reads metadata fine
+  even with optimised storage, originals not required. The film-scan photo folder on
+  the Windows desktop is parked as a possible v2 watched-folder source (PRIVATE §4).
+- [x] **Q5 · Health pipeline cost.** No free iCloud route exists (Health is
+  E2E-encrypted device sync only — iCloud+ doesn't change that), so v1 uses the
+  **free Shortcuts health-sync automation** (API §2 Path A). Mack confirmed:
+  set everything up around the free path, decide on Health Auto Export (~£10) only
+  if it proves unreliable. He also rarely browses health data (glances at the watch)
+  — so ingest stays **minimal-first**: workouts + steps are the core (they're *coach
+  evidence*, not a health browser), sleep next, everything else optional.
+- [x] **Q6 · Notification channel.** Mack deferred to the default → **ntfy.sh as
+  specced** (unguessable topic, redacted payloads, free iOS app — installing it is
+  part of the Phase 8 phone setup). Web-push upgrade reconsidered once the PWA is
+  proven on the home screen.
+- [x] **Q7 · Sibling patches.** Approved. Phase 3 green-lit as specced.
+- [x] **Q8 · Seed data.** Birthdays mostly already exist as events in his calendar →
+  PeoplePage gains a **"suggest from calendar" import** (calendar events with
+  birthday-shaped titles become candidate people, confirmed manually — DATA_MODEL §3);
+  manual top-up after. The 30-minute seed session shrinks to a review.
+- [x] **Q9 · Amy at v1.** She can sign in, but realistically won't use it much: the
+  `partner` role gets a **slim portal** instead of the full bridge — her Michi streak,
+  Mishka recents, Japan countdown, links out to the household apps. No coach, no
+  nudges, no finance tile (DESIGN §3). Full partner experience revisited post-ship.
+- [x] **Q10 · LLM briefing polish.** Rules-composed v1 confirmed. Later polish rides
+  the existing **Claude Code Max subscription via a scheduled task** (the Kakeibo
+  pattern) — no API key spend. Revisit post-ship, only if the rules-composed voice
+  feels flat in practice.
+- [x] **Q11 · Gym definition.** Reshaped the rule (COACH §3.2): the expectation is
+  **office-day-linked** — gym on office days, with one configured exempt day
+  (specifics: PRIVATE §4), rather than a flat N-day gap; a gap floor stays as
+  fallback. **Walks do not count as gym** — but he wants to walk to work most days,
+  so a new **low-movement rule** (COACH §3.12) pings gently when a day has neither a
+  workout nor meaningful steps.
+- [x] **Q12 · Geofence.** Approved — and explicitly fine with *richer* location
+  detail, so journal `place` events may carry location names where sources provide
+  them (photos, calendar); no extra tracking is added beyond what's already specced.
+- [x] **Q13 · The name.** **Sukumo** (蒅) — Mack's pick, keeping the aizome/
+  indigo-dyeing theme. Reasoning + considered alternatives (Kon'ya, Aigame) in
+  PLAN.md's header; the aigame vat survives as the app glyph (DESIGN §2). Labels/
+  hostname minted accordingly (`com.sukumo.*`, `sukumo-api.mishka-hub.com`).
+
+## Outstanding actions (not blockers to starting Phase 1)
+
+1. Mack: private ICS URLs (personal + shared) → PRIVATE.md §3 (needed by Phase 2
+   acceptance).
+2. Phase 7 first item: verify household-Mac Photos.app library state.
+3. Phase 8 seed review: confirm calendar-imported birthday candidates + lead days.
 
 ## Standing verification rule
 

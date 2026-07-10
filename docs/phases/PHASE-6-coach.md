@@ -1,8 +1,9 @@
 # Phase 6 — The Coach (owner: Opus)
 
 The rule engine and catalogue of COACH.md, ending with the coach LaunchAgent live and
-the morning briefing arriving daily. Needs HANDOFF Q1/Q2/Q11 answered (rules 3/6/2
-configs) — build the engine regardless; unconfigured rules sit `not_configured`.
+the morning briefing arriving daily. HANDOFF Q1/Q2/Q11 are answered (2026-07-10) —
+rule configs come from PRIVATE.md §3–4 at seed; any still-unconfigured rule sits
+`not_configured`.
 
 ## Build
 1. `coach/engine.py` per COACH §1: poll → evaluate → gate → deliver, sync_runs row,
@@ -10,7 +11,7 @@ configs) — build the engine regardless; unconfigured rules sit `not_configured
    [NudgeProposal]`; registry auto-discovers `coach/rules/*.py`.
 2. Gate layer: dedupe_key uniqueness, per-rule cooldowns, daily cap w/ priority keep,
    quiet-hours rescheduling — all unit-tested with a frozen clock + seeded db.
-3. Catalogue v1: the eleven rules of COACH §3, each with condition tests, dedupe
+3. Catalogue v1: the twelve rules of COACH §3, each with condition tests, dedupe
    tests, and template copy reviewed against COACH §5 (the copy review is an
    acceptance item, not vibes — read every template aloud).
 4. `briefing.py`: composes from the same proposal stream + weather/calendar/streak
@@ -28,6 +29,9 @@ configs) — build the engine regardless; unconfigured rules sit `not_configured
       nudge table after run 1 (idempotency in anger).
 - [ ] A real morning: briefing push on the phone at 07:35 with true weather/calendar/
       streak content (leave it armed overnight; verify next day).
-- [ ] Gym-gap end-to-end: doctor the db to a 4-day gap → 17:45 tick proposes →
-      phone push → action button resets it.
+- [ ] Movement rules end-to-end: (a) doctor the db to an office day with no workout
+      → 16:45 gym-day nudge; (b) a 4-day gap with no office day → 17:45 fallback;
+      (c) a low-step no-workout day → 18:30 low-movement nudge, AND suppressed when
+      a gym nudge already fired that day (the one-movement-poke rule); real phone
+      push → action button closes the loop.
 - [ ] pytest + typecheck green (paste output).

@@ -22,9 +22,11 @@ journal harder. The engine's job is *assembly and retrieval*, not creation.
 | Kakeibo milestone (via bus) | `finance` | nudge dedupe_key | "crossed 45%" — labels only |
 | Photos (osxphotos, if Q4 yes) | `photo` | photo uuid | count + times + place names per day; **metadata only, no image files copied or uploaded** — the journal links into Photos via time-range deep link |
 | `/api/ingest/event` manual | `manual`/`milestone` | event id | share-sheet "remember this" |
+| Books (status→finished) | `milestone` | `book:<id>` | "finished *Title*" |
 
 Ingesters are idempotent on `(source, provider_uid)` — assembly can re-run any day
-forever.
+forever. Parked v2 source (HANDOFF Q4): the film-scan photo folder on the Windows
+desktop — a future watched-folder ingest, not in v1.
 
 ## 3. Nightly assembly (`assemble_day.py`, 02:30, for yesterday)
 
@@ -39,9 +41,9 @@ forever.
 **Weekly digest** (Sunday within the morning briefing + `digests` row): the week's
 days stitched into a paragraph + numbers vs the week before (neutral phrasing, COACH
 §0), one "moment of the week" (largest photo cluster or best-rated film). **Trip
-digests**: a date-range flagged in settings (Japan: 13 Sep–4 Oct 2026 per the trip
-dashboard — verify exact dates in PRIVATE.md) gets per-day assembly promoted into a
-`trip` digest with a cover page when the range ends.
+digests**: a date-range flagged in settings (the Japan range lives in PRIVATE.md §4
+and runtime settings only — exact travel dates never sit in committed docs) gets
+per-day assembly promoted into a `trip` digest with a cover page when the range ends.
 
 ## 4. The anniversary well
 

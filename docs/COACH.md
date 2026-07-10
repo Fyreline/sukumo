@@ -53,10 +53,13 @@ here).
    hit). Composed by `briefing.py` from the same proposals the rules emit — the
    briefing *is* the digest of rules, not a second brain. `composed_by='rules'` v1;
    LLM polish is HANDOFF Q10.
-2. **gym-gap** — no `workouts` row with `wtype ∈ gym set ⚙` in last ⚙3 days →
-   propose at 17:45 (catch him before evening plans). dedupe `gym-gap:<date>`,
-   cooldown 48h. Tone: invitation, not guilt ("4 days since the last one — tonight's
-   a good night for it").
+2. **gym-day** — reshaped per HANDOFF Q11: the expectation is **office-day-linked**.
+   On a confirmed office day (geofence arrival) that isn't the configured exempt
+   day ⚙ (PRIVATE §4 — it can swap weeks, so it's config) with no gym workout
+   (`wtype ∈ gym set ⚙`) logged by 16:45 → propose at 16:45 ("in the office with no
+   session yet — gym on the way home?"). Fallback floor regardless of location: no
+   gym workout in ⚙4 days → 17:45 nudge. Walks never satisfy this rule. dedupe
+   `gym:<date>`, cooldown 24h. Tone: invitation, not guilt.
 3. **reading** — habit `reading` has no `habit_events` in ⚙2 days → 21:15 push with
    the one-tap action ("20 minutes tonight? ✓ = logged"). The ntfy action button hits
    `act/{token}` which both marks actioned AND writes the habit_event — the loop
@@ -75,8 +78,12 @@ here).
    recommendation, commute is walk/train — PRIVATE), this week's office count vs
    target ⚙, and any all-day OOO events. Template: "Tomorrow reads like an office
    day: <reasons>." dedupe `office:<date>`. It *suggests*; it doesn't track compliance
-   beyond the geofence events feeding history. Rule logic is honestly heuristic v1 —
-   the HANDOFF Q2 answers decide the inputs; ship dumb, observe, sharpen.
+   beyond the geofence events feeding history. Config (from HANDOFF Q2, values in
+   PRIVATE §3): a weekly **target pattern** distinguishing habitual office days from
+   *aspirational* ones — the rule leans encouraging on the aspirational days he
+   historically skips, stays quiet about the habitual ones, and skips bank holidays
+   (the employer-matching feed, API §6). Weather shifts the *framing* of the
+   walk-commute, not the verdict. Honestly heuristic v1 — ship dumb, observe, sharpen.
 7. **occasion-reminder** — non-birthday occasions at lead_days and again at 2 days.
    dedupe `occ:<id>:<offset>`.
 8. **ops: health-sync-stale** — no `ingest:health` sync_run success in 36h → inbox +
@@ -87,11 +94,17 @@ here).
     only: "House pot just crossed another 5% 🎉"). dedupe `goal:<pct5>`.
 11. **japan-countdown** — 60/30/14/7/1 days → briefing line + push at 30/7. dedupe
     `japan:<days>`. (Sunsets after the trip; the memory engine takes over.)
+12. **low-movement** — from HANDOFF Q11: by 18:30, steps < ⚙ threshold AND no workout
+    of any type today → one gentle push ("barely moved today — even a short evening
+    walk counts"). Walks don't satisfy rule 2, but they're exactly what this rule
+    asks for. dedupe `move:<date>`, inherently daily; **suppressed if rule 2 already
+    fired today** — never two movement pokes in one day.
 
 Adding a rule = one module in `coach/rules/`, registered, with tests for condition,
 dedupe and template redaction — the catalogue is designed to grow (ideas parked for
-v2: sleep-debt gentle flag, walk streak, "no memory_events this weekend — go do
-something" — each needs the §0 sniff test before building).
+v2: sleep-debt gentle flag, book recommendations riding the reading history
+(Mishka-style, HANDOFF Q1), "no memory_events this weekend — go do something" — each
+needs the §0 sniff test before building).
 
 ## 4. Timing tolerance
 

@@ -54,14 +54,14 @@ def _weather_line(session: Session, now: datetime) -> str | None:
             precip = daily["precipitation_probability_max"][0]
         except (KeyError, IndexError, TypeError):
             continue
-        where = "commute" if loc == "office" else "at home"
+        where = "on the walk in" if loc == "office" else "at home"
         if precip is None:
             return None
         if precip >= 60:
             return f"Rain looks likely {where} — layers and a brolly. \U0001f327️"
         if precip >= 30:
             return f"A chance of showers {where} today."
-        return f"Dry {where} today."
+        return f"Looks dry {where} today."
     return None
 
 

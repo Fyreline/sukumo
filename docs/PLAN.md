@@ -73,8 +73,14 @@ background sync, lock-screen widgets, Live Activities) — web/PWA first; the $9
 Developer licence is the price of that later phase, TestFlight covers both household
 phones when it comes. Home-control (Home Assistant frontend) — shelved, not enough
 controllable hardware yet. Also parked for v2 (from the HANDOFF answers): book
-recommendations riding the reading history (Mishka-style, Q1), and the Windows
-film-scan photo folder as a journal source (Q4).
+recommendations riding the reading history (Mishka-style, Q1), the Windows
+film-scan photo folder as a journal source (Q4), and **email trip detection**
+(requested 2026-07-11, while away mode was being built): booking confirmations
+(flights/hotels) found in Gmail become *suggested* away ranges/trips — surfaced
+as a nudge with confirm/dismiss actions or a candidates list (the birthday-import
+pattern; never silently auto-added). Natural build: ride Kakeibo's planned Gmail
+ingestion rather than a second Gmail integration — revisit once Kakeibo's
+email pipeline exists.
 
 ## 3. Goals, ranked
 

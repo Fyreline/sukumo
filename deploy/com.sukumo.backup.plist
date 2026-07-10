@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.sukumo.backup</string>
+  <key>WorkingDirectory</key><string>/Users/mack/Documents/Dev/sukumo/apps/server</string>
+  <key>ProgramArguments</key><array>
+    <string>/Users/mack/Documents/Dev/sukumo/apps/server/.venv/bin/python</string>
+    <string>scripts/backup_db.py</string>
+  </array>
+  <key>StartCalendarInterval</key><dict>
+    <key>Hour</key><integer>3</integer>
+    <key>Minute</key><integer>30</integer>
+  </dict>
+  <key>RunAtLoad</key><false/>
+  <key>StandardOutPath</key><string>/Users/mack/Library/Logs/sukumo/backup.log</string>
+  <key>StandardErrorPath</key><string>/Users/mack/Library/Logs/sukumo/backup.err.log</string>
+</dict></plist>

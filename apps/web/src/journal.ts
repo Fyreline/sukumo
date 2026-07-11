@@ -93,9 +93,20 @@ export interface PhotoEntry {
   place: string | null
 }
 
+/** A moment group (memory/photos.py photos_for_date): the server buckets the
+ * day's filtered photos by Photos' own moment title, falling back to time-gap
+ * clusters labelled with the dominant place. `label` null → the UI shows the
+ * start–end time range instead. */
+export interface PhotoGroup {
+  label: string | null
+  start: string // 'HH:MM'
+  end: string // 'HH:MM'
+  photos: PhotoEntry[]
+}
+
 export interface JournalDayPhotos {
   date: string
-  photos: PhotoEntry[]
+  groups: PhotoGroup[]
   configured: boolean // false when no Photos library is wired up server-side
 }
 
@@ -151,12 +162,4 @@ export function eventTime(ts: string): string {
     hour: '2-digit',
     minute: '2-digit',
   })
-}
-
-/** The journal's Photos hand-off. macOS/iOS expose NO public URL scheme to a
- * specific photo, moment or date — photos-redirect:// can only open the app —
- * so the UI labels this honestly ("opens the Photos app") and the thumb strip
- * (fetchJournalPhotos/fetchPhotoThumb) carries the actual previews. */
-export function photosDeepLink(_localDate: string): string {
-  return 'photos-redirect://'
 }

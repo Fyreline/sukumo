@@ -34,10 +34,13 @@ GET  /api/nudges/act/{token}          (open) one-click action link used INSIDE n
                                       --   idempotent, expires with the nudge
 GET  /api/briefings/today|{date}
 GET  /api/journal/{date}, /api/journal?from=&to=      PATCH /api/journal/{date} (mood)
-GET  /api/journal/{date}/photos  -- that day's per-photo metadata {uuid, taken_at,
-                                 --   place} for the journal's thumb strip (MEMORY §5);
-                                 --   primary-only, {photos: [], configured: false}
-                                 --   when no Photos library is wired up
+GET  /api/journal/{date}/photos  -- that day's photos, filtered (no screenshots/
+                                 --   recordings/hidden/trash) and grouped by moment:
+                                 --   {groups: [{label, start, end, photos: [{uuid,
+                                 --   taken_at, place}]}]} for the journal's thumb
+                                 --   strip (MEMORY §2/§5); primary-only,
+                                 --   {groups: [], configured: false} when no
+                                 --   Photos library is wired up
 GET  /api/photos/{uuid}/thumb    -- small derivative JPEG (≤512px, cached in
                                  --   gitignored data/thumbs/) — NEVER an original;
                                  --   primary-only, 404 for unknown/invalid uuids,

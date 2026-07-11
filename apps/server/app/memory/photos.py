@@ -6,9 +6,14 @@ row per local day (kind ``photo``). The mapper NEVER copies, exports, uploads
 or reads image pixels; originals are not required (Q4: osxphotos reads metadata
 fine on an optimised-storage library).
 
+**Journal-worthy only.** Every path here — mapper, day listing, thumb export —
+shares ONE predicate, ``is_journal_photo``: screenshots, screen recordings,
+hidden and trashed assets never count, never list, never thumb (MEMORY §2).
+
 **Thumbnails (MEMORY §5).** The journal's photo strip is served small
 *derivative* JPEGs on demand: ``photos_for_date`` lists a day's per-photo
-metadata and ``export_thumb`` converts the SMALLEST existing Photos derivative
+metadata grouped by moment (Photos' own event clusters, time-gap fallback)
+and ``export_thumb`` converts the SMALLEST existing Photos derivative
 (never an original) into a ≤512px JPEG cached under ``data/thumbs/`` —
 gitignored, served only to the authed primary (routers/journal.py). No image
 ever leaves the household: the tunnel-fronted API is the same authed door as
@@ -29,6 +34,7 @@ import re
 import subprocess
 import threading
 import time
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -48,11 +54,32 @@ def library_exists(path: str | None = None) -> bool:
     return Path(path).exists()
 
 
+def is_journal_photo(photo) -> bool:
+    """THE shared journal-photo predicate (docs/MEMORY.md §2) — one function so
+    the nightly mapper, the day listing and the thumb exporter can never
+    disagree about what counts as a memory.
+
+    Excludes exactly four osxphotos.PhotoInfo flags (all verified properties
+    on osxphotos 0.76.x): ``screenshot``, ``screen_recording``, ``hidden``,
+    ``intrash``. Nothing else — saved WhatsApp images etc. stay; the user's
+    complaint was Shortcuts-app screenshots flooding the strip, not "curate
+    my camera roll". Defaults are falsy so a photo object missing a flag
+    (older library schema, test double) passes rather than vanishing."""
+    return not (
+        bool(getattr(photo, "screenshot", False))
+        or bool(getattr(photo, "screen_recording", False))
+        or bool(getattr(photo, "hidden", False))
+        or bool(getattr(photo, "intrash", False))
+    )
+
+
 def _day_aggregates(library_path: str, since: str | None = None) -> dict[str, dict]:
     """Return ``{local_date: {count, first, last, places:[...]}}`` for the
-    library. Pure metadata — reads ``photo.date`` (a local datetime) and the
-    reverse-geocoded place name only. ``since`` (``YYYY-MM-DD``) bounds the
-    scan for incremental nightly runs.
+    library, counting only photos that pass ``is_journal_photo`` (screenshots,
+    screen recordings, hidden and trashed assets never reach the well). Pure
+    metadata — reads ``photo.date`` (a local datetime) and the reverse-geocoded
+    place name only. ``since`` (``YYYY-MM-DD``) bounds the scan for
+    incremental nightly runs.
 
     Import of osxphotos is deferred to call time so the package stays an
     optional dependency: a machine without it simply reports not_configured.
@@ -62,6 +89,8 @@ def _day_aggregates(library_path: str, since: str | None = None) -> dict[str, di
     db = osxphotos.PhotosDB(dbfile=str(Path(library_path) / "database" / "Photos.sqlite"))
     days: dict[str, dict] = {}
     for photo in db.photos():
+        if not is_journal_photo(photo):  # screenshots etc. never reach the well
+            continue
         when = photo.date  # tz-aware local datetime
         if when is None:
             continue
@@ -208,32 +237,101 @@ def _photosdb(library_path: str):
         return _db_cache["db"]
 
 
+# A new time-gap cluster starts when consecutive (moment-less) photos sit more
+# than this far apart — roughly "a different thing happened".
+GROUP_GAP_MIN = 90
+
+
 def photos_for_date(library_path: str, local_date: str) -> list[dict]:
-    """Per-photo metadata for one local day: ``[{uuid, taken_at, place}]``,
-    sorted by time. Same date semantics as the mapper (photo.date is the
-    library's local datetime). Metadata only — no pixels touched here."""
+    """One local day's photos, filtered (``is_journal_photo``) and grouped by
+    *moment*: ``[{label, start, end, photos: [{uuid, taken_at, place}]}]``,
+    groups ordered by start time, photos time-sorted within each.
+
+    Grouping prefers Photos' own event clustering — photos sharing a non-empty
+    ``PhotoInfo.moment_info.title`` form one group labelled with it. Photos
+    without a usable moment fall back to time-gap clustering (>GROUP_GAP_MIN
+    minutes starts a new group) labelled with the cluster's dominant ``place``
+    name, or ``None`` (the UI shows the time range instead). Same date
+    semantics as the mapper (photo.date is the library's local datetime).
+    Metadata only — no pixels touched here."""
     try:
         db = _photosdb(library_path)
     except ImportError:
         return []
-    out = []
+    entries: list[dict] = []
     for photo in db.photos():
+        if not is_journal_photo(photo):
+            continue
         when = photo.date
         if when is None or when.date().isoformat() != local_date:
             continue
         place = getattr(photo, "place", None)
         name = getattr(place, "name", None) if place else None
-        out.append({"uuid": photo.uuid, "taken_at": when.strftime("%H:%M"), "place": name})
-    out.sort(key=lambda p: (p["taken_at"], p["uuid"]))
-    return out
+        moment = getattr(photo, "moment_info", None)
+        title = getattr(moment, "title", None) if moment is not None else None
+        if not (isinstance(title, str) and title.strip()):
+            title = None
+        entries.append({"when": when, "uuid": photo.uuid, "place": name, "moment": title})
+    entries.sort(key=lambda e: (e["when"].strftime("%H:%M:%S"), e["uuid"]))
+    return _group_day_entries(entries)
+
+
+def _group_day_entries(entries: list[dict]) -> list[dict]:
+    """Time-sorted entries → moment groups (see photos_for_date). Pure and
+    deterministic: same entries, same groups, always."""
+    by_moment: dict[str, list[dict]] = {}
+    loose: list[dict] = []
+    for e in entries:
+        if e["moment"]:
+            by_moment.setdefault(e["moment"], []).append(e)
+        else:
+            loose.append(e)
+
+    groups = [_freeze_group(title, members) for title, members in by_moment.items()]
+
+    cluster: list[dict] = []
+    for e in loose:
+        if cluster and (e["when"] - cluster[-1]["when"]).total_seconds() > GROUP_GAP_MIN * 60:
+            groups.append(_freeze_group(_dominant_place(cluster), cluster))
+            cluster = []
+        cluster.append(e)
+    if cluster:
+        groups.append(_freeze_group(_dominant_place(cluster), cluster))
+
+    groups.sort(key=lambda g: (g["start"], g["end"], g["label"] or ""))
+    return groups
+
+
+def _dominant_place(members: list[dict]) -> str | None:
+    """The cluster's most common place name (alphabetical on ties, so re-runs
+    can't flap between labels); None when nothing is geocoded."""
+    counts = Counter(m["place"] for m in members if m["place"])
+    if not counts:
+        return None
+    top = max(counts.values())
+    return min(place for place, n in counts.items() if n == top)
+
+
+def _freeze_group(label: str | None, members: list[dict]) -> dict:
+    return {
+        "label": label,
+        "start": members[0]["when"].strftime("%H:%M"),
+        "end": members[-1]["when"].strftime("%H:%M"),
+        "photos": [
+            {"uuid": m["uuid"], "taken_at": m["when"].strftime("%H:%M"), "place": m["place"]}
+            for m in members
+        ],
+    }
 
 
 def export_thumb(library_path: str, uuid: str, cache_dir: Path) -> Path | None:
     """A small JPEG thumbnail for one photo, cached at ``cache_dir/{uuid}.jpg``
     so each photo is exported exactly once. Sources the SMALLEST existing
     Photos *derivative* (never the original) and squeezes it through sips to
-    ≤512px JPEG. Returns None (→ 404) for unknown uuids, photos with no local
-    derivative, or a failed conversion — never an exception to the router."""
+    ≤512px JPEG. Returns None (→ 404) for unknown uuids, photos the journal
+    filter excludes (``is_journal_photo`` — same gate as the listing, so a
+    guessed screenshot uuid serves nothing), photos with no local derivative,
+    or a failed conversion — never an exception to the router."""
     if not UUID_RE.match(uuid):
         return None
     dest = cache_dir / f"{uuid}.jpg"
@@ -244,7 +342,7 @@ def export_thumb(library_path: str, uuid: str, cache_dir: Path) -> Path | None:
         photo = db.get_photo(uuid)
     except ImportError:
         return None
-    if photo is None:
+    if photo is None or not is_journal_photo(photo):
         return None
     derivatives = [Path(p) for p in (photo.path_derivatives or []) if p and Path(p).exists()]
     if not derivatives:

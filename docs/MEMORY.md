@@ -20,7 +20,7 @@ journal harder. The engine's job is *assembly and retrieval*, not creation.
 | Calendar | `calendar` | ics_uid | title + location of *attended* (past) events |
 | Shortcuts office/geofence | `place` | event id | office days, notable arrivals |
 | Kakeibo milestone (via bus) | `finance` | nudge dedupe_key | "crossed 45%" — labels only |
-| Photos (osxphotos, if Q4 yes) | `photo` | photo uuid | count + times + place names per day; **metadata only in the well, no originals ever copied or uploaded**. The journal's thumb strip is served separately: small *derivative* JPEGs on demand (`/api/photos/{uuid}/thumb`, primary-only), cached in gitignored `data/thumbs/` — never originals, never in the repo |
+| Photos (osxphotos, if Q4 yes) | `photo` | photo uuid | count + times + place names per day; **metadata only in the well, no originals ever copied or uploaded**. **Journal-photo predicate** (`memory/photos.py is_journal_photo`, shared by the mapper, the day listing AND the thumb exporter): a photo counts unless osxphotos flags it `screenshot`, `screen_recording`, `hidden` or `intrash` — those four exactly, nothing more (saved WhatsApp images etc. stay; the filter exists because Shortcuts screenshots were flooding the strip, not to curate the camera roll). The journal's thumb strip is served separately: small *derivative* JPEGs on demand (`/api/photos/{uuid}/thumb`, primary-only), cached in gitignored `data/thumbs/` — never originals, never in the repo |
 | `/api/ingest/event` manual | `manual`/`milestone` | event id | share-sheet "remember this" |
 | Books (status→finished) | `milestone` | `book:<id>` | "finished *Title*" |
 | Overland location ingest | *(none — bypasses the well)* | — | raw GPS points land in `location_points` (API.md §3b), never as `memory_events`; assembly reduces each day to one movement block in `stats_json` (trace/distance/away minutes) and the raw points die at 90 days. **All metadata stays local** — no geocoding, no tiles, no third-party call, ever — **and the partner never sees location**: it surfaces only through the primary-only journal, never the dashboard, portal, or a push (grep-pinned by `test_architecture_rules.py`) |
@@ -75,10 +75,14 @@ corrected so distances aren't squashed), sky ink at the liquid-thread weight, ol
 start dot, clay end dot, captioned "6.2 km on foot · 3h 7m out". Deliberately **no
 base map and no external tile/geocoding request** — the coordinates never leave the
 household; that absence *is* the design. Degrades to nothing when a day has no trace;
-draw-in animation skipped under reduced motion. Then the day's photos as a collapsible thumbnail strip
-("N photos ›" → a lazy-loaded row of authed derivative thumbs, blob→object-URL,
-revoked on collapse), the mood one-tap. An "Open Photos" link remains but is
-labelled honestly: **macOS/iOS expose no public URL scheme to a specific photo,
-moment or date** — `photos-redirect://` can only open the app, so the in-journal
-thumbs are the way to actually *see* the day. Search v1 is a client-side title
+draw-in animation skipped under reduced motion. Then the day's photos as a collapsible
+strip ("N photos ›", filtered counts) of **moment groups**: the server buckets the
+day's journal-worthy photos by Photos' own moment title, falling back to time-gap
+clusters (>90 min apart) labelled with the dominant place name (or just the time
+range when nothing is geocoded); each group renders a small ink-soft label row above
+its lazy-loaded row of authed derivative thumbs (blob→object-URL, revoked on
+collapse), 24-thumb cap across groups ("+N more"). Then the mood one-tap. There is
+deliberately **no "Open Photos" link**: macOS/iOS expose no public URL scheme to a
+specific photo, moment or date (`photos-redirect://` could only open the app), so
+the in-journal thumbs ARE the way to see the day. Search v1 is a client-side title
 filter; anything fancier waits for real need.

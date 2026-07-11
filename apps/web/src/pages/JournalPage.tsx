@@ -12,14 +12,13 @@ import {
   fetchJournalRange,
   fetchPhotoThumb,
   patchMood,
-  photosDeepLink,
   prettyDate,
   type DigestRow,
   type JournalDayDetail,
   type JournalDaySummary,
   type JournalEvent,
   type Mood,
-  type PhotoEntry,
+  type PhotoGroup,
 } from '../journal'
 
 /** The journal (docs/MEMORY.md §5, PHASE-7 item 5): a vertical scroll of day
@@ -164,16 +163,36 @@ function MoodRow({
 }
 
 // -------------------------------------------------------------- photo strip --
-/** The day's photos as a collapsible thumbnail row (MEMORY §5). Thumbs are
- * authed fetches (a bare <img src> can't carry the bearer header), so each
- * one is blob → object URL, revoked on collapse/unmount. The Photos link
- * stays, labelled honestly: macOS/iOS expose NO public URL scheme to a
- * specific photo or date — photos-redirect:// can only open the app. */
+/** The day's photos as a collapsible set of moment groups (MEMORY §5): the
+ * server filters out screenshots/recordings/hidden/trash and buckets the rest
+ * by Photos' own moments (time-gap clusters as fallback), so each group gets
+ * a small label row — moment title, dominant place, or just the time range —
+ * above its thumbnail row. Thumbs are authed fetches (a bare <img src> can't
+ * carry the bearer header), so each one is blob → object URL, revoked on
+ * collapse/unmount. The 24-thumb cap applies ACROSS groups ("+N more"). */
 const MAX_THUMBS = 24
+
+/** Cap the groups to a total thumb budget: later groups shrink, then drop. */
+export function capGroups(groups: PhotoGroup[], budget: number): PhotoGroup[] {
+  const capped: PhotoGroup[] = []
+  let left = budget
+  for (const g of groups) {
+    if (left <= 0) break
+    const photos = g.photos.slice(0, left)
+    left -= photos.length
+    capped.push({ ...g, photos })
+  }
+  return capped
+}
+
+function groupLabel(g: PhotoGroup): string {
+  if (g.label) return g.label
+  return g.start === g.end ? g.start : `${g.start}–${g.end}`
+}
 
 function PhotoStrip({ date, count }: { date: string; count: number }) {
   const [open, setOpen] = useState(false)
-  const [entries, setEntries] = useState<PhotoEntry[] | 'loading' | 'error' | 'unconfigured' | null>(null)
+  const [groups, setGroups] = useState<PhotoGroup[] | 'loading' | 'error' | 'unconfigured' | null>(null)
   const [thumbs, setThumbs] = useState<Record<string, string>>({}) // uuid -> object URL
   const urls = useRef<string[]>([])
 
@@ -195,37 +214,41 @@ function PhotoStrip({ date, count }: { date: string; count: number }) {
     if (open) {
       setOpen(false)
       revokeAll()
-      setEntries(null) // refetched on next open — cheap, and never a stale strip
+      setGroups(null) // refetched on next open — cheap, and never a stale strip
       return
     }
     setOpen(true)
-    setEntries('loading')
+    setGroups('loading')
     try {
       const res = await fetchJournalPhotos(date)
       if (!res.configured) {
-        setEntries('unconfigured')
+        setGroups('unconfigured')
         return
       }
-      setEntries(res.photos)
+      setGroups(res.groups)
       // Lazy thumbs: fire the (small, cached-server-side) fetches in parallel;
       // each shimmer square fills in as its blob lands. Failures stay quiet —
       // the strip degrades to shimmers, never an error wall.
-      for (const p of res.photos.slice(0, MAX_THUMBS)) {
-        fetchPhotoThumb(p.uuid).then(
-          (blob) => {
-            const url = URL.createObjectURL(blob)
-            urls.current.push(url)
-            setThumbs((m) => ({ ...m, [p.uuid]: url }))
-          },
-          () => undefined,
-        )
+      for (const g of capGroups(res.groups, MAX_THUMBS)) {
+        for (const p of g.photos) {
+          fetchPhotoThumb(p.uuid).then(
+            (blob) => {
+              const url = URL.createObjectURL(blob)
+              urls.current.push(url)
+              setThumbs((m) => ({ ...m, [p.uuid]: url }))
+            },
+            () => undefined,
+          )
+        }
       }
     } catch {
-      setEntries('error')
+      setGroups('error')
     }
   }
 
-  const overflow = Array.isArray(entries) ? Math.max(0, entries.length - MAX_THUMBS) : 0
+  const total = Array.isArray(groups) ? groups.reduce((n, g) => n + g.photos.length, 0) : 0
+  const overflow = Math.max(0, total - MAX_THUMBS)
+  const shown = Array.isArray(groups) ? capGroups(groups, MAX_THUMBS) : []
 
   return (
     <div>
@@ -243,51 +266,61 @@ function PhotoStrip({ date, count }: { date: string; count: number }) {
         </span>
       </button>
 
-      {open && entries === 'loading' && (
+      {open && groups === 'loading' && (
         <div className="mt-1 flex gap-2" role="status" aria-label="Loading photo previews">
           {[0, 1, 2].map((i) => (
             <span key={i} className="h-20 w-20 animate-pulse rounded-md bg-paper-deep motion-reduce:animate-none" />
           ))}
         </div>
       )}
-      {open && entries === 'error' && (
+      {open && groups === 'error' && (
         <p className="mt-1 text-xs text-ink-soft">Couldn’t load the previews just now.</p>
       )}
-      {open && entries === 'unconfigured' && (
+      {open && groups === 'unconfigured' && (
         <p className="mt-1 text-xs text-ink-soft">No photo library is wired up on the server yet.</p>
       )}
-      {open && Array.isArray(entries) && (
-        <ul className="mt-1 flex gap-2 overflow-x-auto pb-1" aria-label={`Photo previews, ${date}`}>
-          {entries.slice(0, MAX_THUMBS).map((p) => (
-            <li key={p.uuid} className="shrink-0">
-              {thumbs[p.uuid] ? (
-                <img
-                  src={thumbs[p.uuid]}
-                  alt={`Photo at ${p.taken_at}${p.place ? `, ${p.place}` : ''}`}
-                  className="h-20 w-20 rounded-md border border-line object-cover"
-                />
-              ) : (
-                <span
-                  className="block h-20 w-20 animate-pulse rounded-md bg-paper-deep motion-reduce:animate-none"
-                  aria-hidden
-                />
-              )}
-            </li>
+      {open && Array.isArray(groups) && (
+        <div className="mt-1 space-y-2">
+          {shown.map((g, gi) => (
+            <div key={`${g.start}-${g.label ?? gi}`}>
+              <p className="mb-1 text-xs text-ink-soft">
+                {groupLabel(g)}
+                {g.label && (
+                  <span className="ml-1.5 font-mono text-[10px]">
+                    {g.start === g.end ? g.start : `${g.start}–${g.end}`}
+                  </span>
+                )}
+              </p>
+              <ul
+                className="flex gap-2 overflow-x-auto pb-1"
+                aria-label={`Photo previews, ${date}, ${groupLabel(g)}`}
+              >
+                {g.photos.map((p) => (
+                  <li key={p.uuid} className="shrink-0">
+                    {thumbs[p.uuid] ? (
+                      <img
+                        src={thumbs[p.uuid]}
+                        alt={`Photo at ${p.taken_at}${p.place ? `, ${p.place}` : ''}`}
+                        className="h-20 w-20 rounded-md border border-line object-cover"
+                      />
+                    ) : (
+                      <span
+                        className="block h-20 w-20 animate-pulse rounded-md bg-paper-deep motion-reduce:animate-none"
+                        aria-hidden
+                      />
+                    )}
+                  </li>
+                ))}
+                {overflow > 0 && gi === shown.length - 1 && (
+                  <li className="flex h-20 shrink-0 items-center px-1 font-mono text-[11px] text-ink-soft">
+                    +{overflow} more
+                  </li>
+                )}
+              </ul>
+            </div>
           ))}
-          {overflow > 0 && (
-            <li className="flex h-20 shrink-0 items-center px-1 font-mono text-[11px] text-ink-soft">
-              +{overflow} more in Photos
-            </li>
-          )}
-        </ul>
+        </div>
       )}
-
-      <p className="mt-1 text-xs text-ink-soft">
-        <a href={photosDeepLink(date)} className="font-medium text-sky underline underline-offset-2">
-          Open Photos ↗
-        </a>{' '}
-        (opens the Photos app — it can’t jump to a specific day)
-      </p>
     </div>
   )
 }

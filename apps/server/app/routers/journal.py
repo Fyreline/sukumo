@@ -3,7 +3,7 @@ docs/phases/PHASE-7-memory.md item 6.
 
     GET   /api/journal/{date}   one assembled day (+ its events + anniversary)
     GET   /api/journal?from=&to=   a span of assembled days (list)
-    GET   /api/journal/{date}/photos   that day's per-photo metadata (MEMORY §5)
+    GET   /api/journal/{date}/photos   that day's photos, filtered + grouped by moment (MEMORY §5)
     GET   /api/photos/{uuid}/thumb     small derivative JPEG — NEVER an original
     PATCH /api/journal/{date}   set mood — the ONE optional human field
     GET   /api/digests?kind=    weekly / trip digests
@@ -142,15 +142,16 @@ async def list_journal_days(
 def get_journal_day_photos(
     day: str, user_id: int = Depends(primary_only), session: Session = Depends(get_session)
 ) -> dict:
-    """The day's per-photo metadata — {uuid, taken_at, place} each — for the
-    journal's thumbnail strip (MEMORY §5). ``configured`` is false (with an
-    empty list) when no Photos library is wired up, so the UI can say so
-    honestly instead of spinning."""
+    """The day's photo metadata for the journal's thumbnail strip (MEMORY §5),
+    filtered (no screenshots/recordings/hidden/trash) and grouped by moment:
+    {groups: [{label, start, end, photos: [{uuid, taken_at, place}]}]}.
+    ``configured`` is false (with an empty groups list) when no Photos library
+    is wired up, so the UI can say so honestly instead of spinning."""
     _valid_date(day, "date")
     library = photos_mod.resolve_library_path(session)
     if not library or not photos_mod.library_exists(library):
-        return {"date": day, "photos": [], "configured": False}
-    return {"date": day, "photos": photos_mod.photos_for_date(library, day), "configured": True}
+        return {"date": day, "groups": [], "configured": False}
+    return {"date": day, "groups": photos_mod.photos_for_date(library, day), "configured": True}
 
 
 @router.get("/photos/{uuid}/thumb")

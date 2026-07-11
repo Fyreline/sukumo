@@ -41,12 +41,12 @@ def test_bad_date_422(client):
 
 # --------------------------------------------------------- graceful degrade --
 def test_photos_unconfigured_is_honest_empty(client):
-    """No library wired up -> empty list + configured false, never an error
+    """No library wired up -> empty groups + configured false, never an error
     (the HANDOFF Q4 degrade, same as the mapper)."""
     headers = _primary_headers()
     res = client.get("/api/journal/2026-07-08/photos", headers=headers)
     assert res.status_code == 200
-    assert res.json() == {"date": "2026-07-08", "photos": [], "configured": False}
+    assert res.json() == {"date": "2026-07-08", "groups": [], "configured": False}
 
 
 def test_thumb_unconfigured_404(client):
@@ -55,17 +55,27 @@ def test_thumb_unconfigured_404(client):
 
 
 # ------------------------------------------------------------ happy paths ---
-def test_photos_lists_day_metadata(client, monkeypatch):
+def test_photos_lists_day_groups(client, monkeypatch):
+    """The route hands photos_for_date's moment groups through verbatim
+    (SYNTHETIC label/place — the suite never touches a real library)."""
     headers = _primary_headers()
     _configure_fake_library(monkeypatch)
-    listing = [{"uuid": FAKE_UUID, "taken_at": "14:05", "place": "Somewhere"}]
-    monkeypatch.setattr(photos_mod, "photos_for_date", lambda lib, day: list(listing))
+    groups = [
+        {
+            "label": "A Synthetic Outing",
+            "start": "14:05",
+            "end": "14:40",
+            "photos": [{"uuid": FAKE_UUID, "taken_at": "14:05", "place": "Somewhere"}],
+        }
+    ]
+    monkeypatch.setattr(photos_mod, "photos_for_date", lambda lib, day: [dict(g) for g in groups])
 
     res = client.get("/api/journal/2026-07-08/photos", headers=headers)
     assert res.status_code == 200
     body = res.json()
     assert body["configured"] is True
-    assert body["photos"] == listing
+    assert body["groups"] == groups
+    assert "photos" not in body  # the flat list is gone — groups are the shape
 
 
 def test_thumb_serves_cached_jpeg(client, monkeypatch, tmp_path):

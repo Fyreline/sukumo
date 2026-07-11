@@ -1,10 +1,11 @@
 import type { Dashboard, WeatherDay } from '../../dashboard'
+import { Markdown } from '../Markdown'
 import { Tile, TileEmpty } from './Tile'
 
 /** Tile 1 — Today (DESIGN §3.1): date, weather glyph strip (home/office),
- * briefing, Japan countdown chip while active. The coach's face — clay
- * left-border. The briefing composes from Phase 6; until then the tile says
- * so quietly (COACH §5 voice). */
+ * the coach's briefing_md rendered, Japan countdown chip while active. The
+ * coach's face — clay left-border. Until the coach has run today the tile
+ * says so quietly (COACH §5 voice). */
 
 function WeatherGlyph({ code }: { code: number }) {
   // WMO weather codes -> one small woodblock-flat glyph (currentColor).
@@ -122,10 +123,10 @@ export function TodayTile({ data }: { data: Dashboard }) {
         <p className="mt-3 text-xs text-ink-soft">No forecast on hand yet.</p>
       )}
 
-      {data.briefing ? (
-        <p className="mt-3 whitespace-pre-wrap font-serif text-sm leading-relaxed text-ink">{data.briefing}</p>
+      {data.briefing?.content_md ? (
+        <Markdown text={data.briefing.content_md} className="mt-3" />
       ) : (
-        <TileEmpty>The coach starts composing your morning briefing in a later phase.</TileEmpty>
+        <TileEmpty>The coach hasn’t composed this morning’s briefing yet.</TileEmpty>
       )}
     </Tile>
   )

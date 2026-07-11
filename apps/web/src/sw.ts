@@ -15,13 +15,21 @@ declare const self: ServiceWorkerGlobalScope
 // Auth (`/api/auth/*`) and one-click nudge action links (`/api/nudges/act/*`)
 // are NEVER cached — the dashboard path is the ONLY /api path this worker
 // touches, allow-listed by exact pathname, and only 200s are stored.
-const SHELL_CACHE = 'sukumo-shell-v3'
+const SHELL_CACHE = 'sukumo-shell-v4'
 const API_CACHE = 'sukumo-api-v1'
 const KNOWN_CACHES = [SHELL_CACHE, API_CACHE]
 // The worker may be served from a subpath (GitHub Pages: /sukumo/sw.js), so
 // the shell is precached relative to wherever the worker actually lives.
 const BASE = new URL('.', self.location.href).pathname
-const SHELL_URLS = [BASE, `${BASE}index.html`, `${BASE}manifest.webmanifest`, `${BASE}icons/icon.svg`]
+const SHELL_URLS = [
+  BASE,
+  `${BASE}index.html`,
+  `${BASE}manifest.webmanifest`,
+  `${BASE}icons/icon.svg`,
+  `${BASE}icons/icon-192.png`,
+  `${BASE}icons/icon-512.png`,
+  `${BASE}icons/apple-touch-icon.png`,
+]
 const DASHBOARD_PATH = '/api/dashboard'
 
 self.addEventListener('install', (event) => {
@@ -41,6 +49,25 @@ self.addEventListener('activate', (event) => {
       .then(() => self.clients.claim()),
   )
 })
+
+/** Network-first for the shell's documents (index.html + manifest): a fresh
+ * deploy replaces the hashed asset names the old cached HTML points at, so
+ * serving stale HTML cache-first would 404 the app's own bundle and blank
+ * the page. The cache copy is refreshed on every good fetch and only serves
+ * as the offline fallback. */
+async function shellNetworkFirst(request: Request): Promise<Response> {
+  const cache = await caches.open(SHELL_CACHE)
+  try {
+    const response = await fetch(request)
+    if (response.ok) {
+      await cache.put(request.url, response.clone())
+    }
+    return response
+  } catch {
+    const cached = await caches.match(request)
+    return cached ?? Response.error()
+  }
+}
 
 async function dashboardNetworkFirst(request: Request): Promise<Response> {
   const cache = await caches.open(API_CACHE)
@@ -84,6 +111,11 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return
   if (!SHELL_URLS.includes(url.pathname)) return
 
-  // Cache-first for the precached shell only.
+  // Documents network-first (see shellNetworkFirst); icons cache-first —
+  // they're content-stable and the manifest names them explicitly.
+  if (url.pathname === BASE || url.pathname === `${BASE}index.html` || url.pathname === `${BASE}manifest.webmanifest`) {
+    event.respondWith(shellNetworkFirst(request))
+    return
+  }
   event.respondWith(caches.match(request).then((cached) => cached ?? fetch(request)))
 })

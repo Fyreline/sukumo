@@ -286,13 +286,28 @@ def assemble_range(
     map_counts = mappers.run_mappers(session, now)
     d0 = date.fromisoformat(start)
     d1 = date.fromisoformat(end)
+    # Backfill only materialises days that HAVE something — a sparse archive
+    # (e.g. years of photo history) must not manufacture thousands of "nothing
+    # logged" rows for the gaps. The nightly job still writes honest quiet
+    # days for yesterday (assemble_yesterday), which is where they belong.
+    event_dates = {_local_date_of(t) for t in session.scalars(select(MemoryEvent.ts)).all()}
+    sample_dates = {
+        _local_date_of(t)
+        for t in session.scalars(select(HealthSample.ts_start)).all()
+    }
+    populated = event_dates | sample_dates
     days = 0
+    skipped = 0
     cur = d0
     while cur <= d1:
-        assemble_day(session, cur.isoformat(), now=now, run_maps=False)
-        days += 1
+        iso = cur.isoformat()
+        if iso in populated:
+            assemble_day(session, iso, now=now, run_maps=False)
+            days += 1
+        else:
+            skipped += 1
         cur += timedelta(days=1)
-    return {"days": days, "mapped": map_counts}
+    return {"days": days, "skipped_empty": skipped, "mapped": map_counts}
 
 
 def assemble_yesterday(session: Session, *, now: datetime | None = None) -> dict:

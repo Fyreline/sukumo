@@ -98,6 +98,10 @@ def map_photos(
     for local_date, agg in days.items():
         if agg["count"] <= 0:
             continue
+        # Guard against undated/epoch-stamped imports (real library has a
+        # 1970-01-01 outlier) — clock-garbage must not stretch the journal.
+        if local_date < "2000-01-01":
+            continue
         provider_uid = f"photo:{local_date}"
         # midday-local as the row ts so the day bucket is unambiguous; the
         # real per-photo times live in detail_json's first/last.

@@ -44,27 +44,41 @@ export function VitalsTile({ vitals }: { vitals?: Vitals }) {
     vitals.active_kcal.series.every((v) => v == null) &&
     vitals.workouts.series.every((v) => v === 0)
 
+  // A metric with no data in the whole 14-day window hides its chip rather
+  // than sitting there dead (user request 2026-07-11: sleep isn't synced —
+  // Shortcuts can't aggregate sleep sanely — so its chip vanishes until a
+  // source exists; it reappears by itself the day sleep data ever lands).
+  const hasSleep = vitals.sleep_hours.series.some((v) => v != null)
+  const hasEnergy = vitals.active_kcal.series.some((v) => v != null)
+  const chipCount = 2 + (hasSleep ? 1 : 0) + (hasEnergy ? 1 : 0)
+
   return (
     <Tile title="Vitals" ariaLabel="Vitals — steps, sleep, energy and workouts">
       {noData ? (
         <TileEmpty>Nothing from the phone yet — vitals appear once the health sync has run.</TileEmpty>
       ) : (
-        <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-4">
+        <div
+          className={`grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 ${chipCount >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}
+        >
           <StatChip label="Steps" value={fmt(vitals.steps.today)} series={vitals.steps.series} color="var(--color-viz-1)" />
-          <StatChip
-            label="Sleep"
-            value={fmt(vitals.sleep_hours.today, 1)}
-            unit="h"
-            series={vitals.sleep_hours.series}
-            color="var(--color-viz-2)"
-          />
-          <StatChip
-            label="Active"
-            value={fmt(vitals.active_kcal.today)}
-            unit="kcal"
-            series={vitals.active_kcal.series}
-            color="var(--color-viz-3)"
-          />
+          {hasSleep && (
+            <StatChip
+              label="Sleep"
+              value={fmt(vitals.sleep_hours.today, 1)}
+              unit="h"
+              series={vitals.sleep_hours.series}
+              color="var(--color-viz-2)"
+            />
+          )}
+          {hasEnergy && (
+            <StatChip
+              label="Active"
+              value={fmt(vitals.active_kcal.today)}
+              unit="kcal"
+              series={vitals.active_kcal.series}
+              color="var(--color-viz-3)"
+            />
+          )}
           <StatChip
             label="Workouts"
             value={String(vitals.workouts.this_week)}

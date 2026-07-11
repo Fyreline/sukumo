@@ -43,6 +43,9 @@ const PACE_LABELS: Record<string, string> = {
   on_pace: 'on pace',
   ahead: 'ahead of pace',
   behind: 'a touch behind',
+  // Kakeibo reports no_trend while the pot is too young to judge — say so in
+  // words rather than leaking the raw enum onto the tile.
+  no_trend: 'early days',
 }
 
 const pounds = (pence: number | null): string =>

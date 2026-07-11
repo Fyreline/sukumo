@@ -52,7 +52,11 @@ export function PeopleTile({
               <button
                 type="button"
                 onClick={onOpenPeople}
-                aria-label={`${o.title}, ${daysLabel(o.days_to_go)}, gift status ${o.gift_status}`}
+                aria-label={
+                  o.kind === 'birthday'
+                    ? `${o.title}, ${daysLabel(o.days_to_go)}, gift status ${o.gift_status}`
+                    : `${o.title}, ${daysLabel(o.days_to_go)}`
+                }
                 className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md border border-line bg-paper px-3 py-2 text-left transition hover:border-line-strong"
               >
                 <div className="min-w-0">
@@ -64,7 +68,9 @@ export function PeopleTile({
                     {daysLabel(o.days_to_go)} · {new Date(`${o.date}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                   </div>
                 </div>
-                <GiftPill status={o.gift_status} />
+                {/* Gift status only makes sense for birthdays — a "no gift
+                    yet" pill on e.g. a review occasion reads as nonsense. */}
+                {o.kind === 'birthday' && <GiftPill status={o.gift_status} />}
               </button>
             </li>
           ))}

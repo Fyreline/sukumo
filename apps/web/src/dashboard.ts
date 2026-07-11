@@ -82,6 +82,14 @@ export interface WeatherDay {
   weathercode: number
 }
 
+/** Today's morning briefing row (DATA_MODEL §4), composed by the coach —
+ * null until it has run today. content_md renders through <Markdown>. */
+export interface BriefingBlock {
+  date: string
+  content_md: string
+  composed_by: string
+}
+
 export interface Dashboard {
   generated_at: string
   date: string
@@ -90,7 +98,7 @@ export interface Dashboard {
   japan: { days_to_go: number } | null
   // primary-only sections — the server omits them entirely for role=partner
   // (DESIGN §3 partner portal; enforced server-side, tested server-side).
-  briefing?: string | null
+  briefing?: BriefingBlock | null
   vitals?: Vitals
   habits?: HabitState[]
   goal?: Goal | null

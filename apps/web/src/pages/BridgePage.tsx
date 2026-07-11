@@ -8,6 +8,7 @@ import { OpsTile } from '../components/tiles/OpsTile'
 import { PeopleTile } from '../components/tiles/PeopleTile'
 import { StreaksTile } from '../components/tiles/StreaksTile'
 import { Tile, TileEmpty, StaleChip } from '../components/tiles/Tile'
+import { TileBoundary } from '../components/tiles/TileBoundary'
 import { TodayTile } from '../components/tiles/TodayTile'
 import { VitalsTile } from '../components/tiles/VitalsTile'
 
@@ -182,7 +183,7 @@ export function BridgePage({
             animate={TILE_RISE.animate}
             transition={{ duration: 0.22, delay: i * 0.03, ease: 'easeOut' }}
           >
-            {tile}
+            <TileBoundary>{tile}</TileBoundary>
           </motion.div>
         ))}
       </div>

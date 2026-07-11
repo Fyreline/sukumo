@@ -50,6 +50,25 @@ self.addEventListener('activate', (event) => {
   )
 })
 
+/** Network-first for the shell's documents (index.html + manifest): a fresh
+ * deploy replaces the hashed asset names the old cached HTML points at, so
+ * serving stale HTML cache-first would 404 the app's own bundle and blank
+ * the page. The cache copy is refreshed on every good fetch and only serves
+ * as the offline fallback. */
+async function shellNetworkFirst(request: Request): Promise<Response> {
+  const cache = await caches.open(SHELL_CACHE)
+  try {
+    const response = await fetch(request)
+    if (response.ok) {
+      await cache.put(request.url, response.clone())
+    }
+    return response
+  } catch {
+    const cached = await caches.match(request)
+    return cached ?? Response.error()
+  }
+}
+
 async function dashboardNetworkFirst(request: Request): Promise<Response> {
   const cache = await caches.open(API_CACHE)
   try {
@@ -92,6 +111,11 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return
   if (!SHELL_URLS.includes(url.pathname)) return
 
-  // Cache-first for the precached shell only.
+  // Documents network-first (see shellNetworkFirst); icons cache-first —
+  // they're content-stable and the manifest names them explicitly.
+  if (url.pathname === BASE || url.pathname === `${BASE}index.html` || url.pathname === `${BASE}manifest.webmanifest`) {
+    event.respondWith(shellNetworkFirst(request))
+    return
+  }
   event.respondWith(caches.match(request).then((cached) => cached ?? fetch(request)))
 })

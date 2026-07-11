@@ -52,7 +52,7 @@ const inputCls =
 const buttonCls =
   'min-h-11 rounded-md bg-clay px-4 text-sm font-medium text-paper transition hover:bg-clay-deep disabled:opacity-50'
 const quietButtonCls =
-  'min-h-8 rounded-full border border-line-strong px-2.5 text-xs font-medium text-ink-mid transition hover:border-clay hover:text-clay'
+  'min-h-11 rounded-full border border-line-strong px-2.5 text-xs font-medium text-ink-mid transition hover:border-clay hover:text-clay'
 
 const GIFT_NEXT: Record<GiftRow['status'], GiftRow['status']> = { idea: 'bought', bought: 'given', given: 'idea' }
 

@@ -112,7 +112,7 @@ export function SettingsPage() {
         </>
       )}
 
-      {error && error !== 'forbidden' && <p className="px-1 text-xs text-clay">{error}</p>}
+      {error && error !== 'forbidden' && <p className="px-1 text-xs text-fig">{error}</p>}
 
       <section className={rowCls} aria-label="Install">
         <h2 className="font-display text-sm font-medium text-ink-mid">On your home screen</h2>

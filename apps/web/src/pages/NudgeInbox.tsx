@@ -21,9 +21,9 @@ interface NudgeRow {
 }
 
 const quietButtonCls =
-  'min-h-8 rounded-full border border-line-strong px-2.5 text-xs font-medium text-ink-mid transition hover:border-clay hover:text-clay disabled:opacity-50'
+  'min-h-11 rounded-full border border-line-strong px-2.5 text-xs font-medium text-ink-mid transition hover:border-clay hover:text-clay disabled:opacity-50'
 const primaryButtonCls =
-  'min-h-8 rounded-full bg-clay px-3 text-xs font-medium text-paper transition hover:bg-clay-deep disabled:opacity-50'
+  'min-h-11 rounded-full bg-clay px-3 text-xs font-medium text-paper transition hover:bg-clay-deep disabled:opacity-50'
 
 /** 'bus:michi-bus' -> 'michi-bus'; 'gym-day' -> 'gym-day' — the household
  * source tag on each card, so a bus message reads distinctly from a coach

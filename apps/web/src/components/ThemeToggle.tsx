@@ -34,7 +34,7 @@ export function ThemeToggle() {
       aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       aria-pressed={theme === 'dark'}
       title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-line-strong bg-white text-ink-mid transition hover:bg-oat hover:text-ink dark:bg-paper-mid"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-line-strong bg-paper-mid text-ink-mid transition hover:bg-oat hover:text-ink"
     >
       {theme === 'dark' ? (
         // Sun glyph — shown in dark mode to indicate "tap to go light".

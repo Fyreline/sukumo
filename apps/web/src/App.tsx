@@ -172,7 +172,7 @@ function AuthenticatedApp({ user }: { user: AuthUser }) {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-5 pb-24 pt-6 sm:pb-10 sm:pt-8">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-6 sm:pb-10 sm:pt-8">
         {tab === 'bridge' && (
           <BridgePage
             onOpenPeople={user.role === 'primary' ? () => go('people') : undefined}
@@ -189,9 +189,12 @@ function AuthenticatedApp({ user }: { user: AuthUser }) {
         {tab === 'settings' && <SettingsPage />}
       </main>
 
-      {/* Mobile bottom bar — 64px tall, safe-area padded (household pattern). */}
+      {/* Mobile bottom bar — 64px of content + the home-indicator inset. The
+          inset must ADD to the height, not pad inside a fixed h-16: inside,
+          it compresses the 64px row and clips the icons against the top edge
+          (seen on the installed PWA, 2026-07-11). */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-20 flex h-16 items-stretch border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] sm:hidden"
+        className="fixed inset-x-0 bottom-0 z-20 flex h-[calc(4rem+env(safe-area-inset-bottom))] items-stretch border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] sm:hidden"
         aria-label="Sections"
       >
         {tabs.map((t) => (

@@ -16,7 +16,7 @@ journal harder. The engine's job is *assembly and retrieval*, not creation.
 |---|---|---|---|
 | Health ingest | `workout` | HAE workout uid | type, duration — "gym, 52 min" |
 | Michi snapshot | `study` | `michi:<date>` | words/lessons that day, streak marks |
-| Mishka snapshot | `film` | `mishka:<watch id>` | title, rating, poster_url |
+| Mishka snapshot | `film` | `mishka:<watch id>` | title, rating, poster_url — **primary user's watches only**, filtered on `recent[].user_email` (API.md §4); the partner's watches are skipped, not stored |
 | Calendar | `calendar` | ics_uid | title + location of *attended* (past) events |
 | Shortcuts office/geofence | `place` | event id | office days, notable arrivals |
 | Kakeibo milestone (via bus) | `finance` | nudge dedupe_key | "crossed 45%" — labels only |

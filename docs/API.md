@@ -120,13 +120,20 @@ Kakeibo GET /api/goal/service    → { goal_pence, saved_pence, pct, pace_status
                                      as_of }             -- numbers stay server-side;
                                                           -- bridge shows them, pushes NEVER do
 Mishka  GET /api/activity/service→ { recent: [{title, watched_at, poster_url,
-                                     rating}], watchlist_count }
+                                     rating, user_email}], watchlist_count }
 ```
 
 All three: `Authorization: Bearer <service token>`, 401 without; **no other fields
 consumed** even if present (snapshot contract, DATA_MODEL §6). Fallback if a sibling
 patch stalls: Letterboxd's public RSS can stand in for Mishka's recents; Michi/Kakeibo
 have no fallback — their tiles show `stale` honestly.
+
+`recent[].user_email` is the email of whichever housemate actually logged that
+watch in Mishka (Mishka is a 2-person shared household app) — not a
+household-wide value. Sukumo's journal film mapper (`app/memory/mappers.py`)
+uses it to keep only the primary user's own watches out of the household
+feed; the bridge's Mishka recents tile and the partner portal deliberately
+stay household-wide and read the raw snapshot unfiltered.
 
 ## 5. The notification bus — `POST /api/notify`
 

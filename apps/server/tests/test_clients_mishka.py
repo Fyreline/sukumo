@@ -16,8 +16,20 @@ SERVICE_URL = "http://127.0.0.1:8000/api/activity/service"
 
 FULL_PAYLOAD = {
     "recent": [
-        {"title": "Paddington", "watched_at": "2026-07-09", "poster_url": "https://img/p.jpg", "rating": 4.5},
-        {"title": "Arrival", "watched_at": "2026-07-05", "poster_url": None, "rating": None},
+        {
+            "title": "Paddington",
+            "watched_at": "2026-07-09",
+            "poster_url": "https://img/p.jpg",
+            "rating": 4.5,
+            "user_email": "mack@example.com",
+        },
+        {
+            "title": "Arrival",
+            "watched_at": "2026-07-05",
+            "poster_url": None,
+            "rating": None,
+            "user_email": "amy@example.com",
+        },
     ],
     "watchlist_count": 7,
 }
@@ -43,6 +55,7 @@ def test_filter_payload_strips_extra_fields_inside_recent_items():
                 "watched_at": "2026-07-09",
                 "poster_url": "https://img/p.jpg",
                 "rating": 4.5,
+                "user_email": "mack@example.com",
                 "tmdb_id": 123456,
                 "letterboxd_uri": "https://letterboxd.com/film/paddington/",
             }
@@ -51,7 +64,13 @@ def test_filter_payload_strips_extra_fields_inside_recent_items():
     }
     filtered = mishka_client.filter_payload(raw)
     assert filtered["recent"] == [
-        {"title": "Paddington", "watched_at": "2026-07-09", "poster_url": "https://img/p.jpg", "rating": 4.5}
+        {
+            "title": "Paddington",
+            "watched_at": "2026-07-09",
+            "poster_url": "https://img/p.jpg",
+            "rating": 4.5,
+            "user_email": "mack@example.com",
+        }
     ]
 
 

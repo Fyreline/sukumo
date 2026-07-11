@@ -88,8 +88,20 @@ def test_film_mapper_maps_recent_watches_idempotently():
     make_user(email="mack@example.com", role="primary")
     with SessionLocal() as db:
         recent = [
-            {"title": "A Synthetic Film", "watched_at": "2026-07-07 20:30:00", "rating": 4, "poster_url": "x"},
-            {"title": "Another Fake One", "watched_at": "2026-07-08 21:00:00", "rating": 5, "poster_url": "y"},
+            {
+                "title": "A Synthetic Film",
+                "watched_at": "2026-07-07 20:30:00",
+                "rating": 4,
+                "poster_url": "x",
+                "user_email": "mack@example.com",
+            },
+            {
+                "title": "Another Fake One",
+                "watched_at": "2026-07-08 21:00:00",
+                "rating": 5,
+                "poster_url": "y",
+                "user_email": "mack@example.com",
+            },
         ]
         db.add(_mishka_snapshot("2026-07-08 23:00:00", recent))
         # a later snapshot repeats the same watches (overlapping windows)
@@ -104,6 +116,73 @@ def test_film_mapper_maps_recent_watches_idempotently():
         rows = db.scalars(select(MemoryEvent).where(MemoryEvent.kind == "film")).all()
         assert len(rows) == 2
         assert all(r.source == "mishka" for r in rows)
+
+
+def test_film_mapper_only_maps_primary_users_watches():
+    """Mishka's ``recent`` feed is household-wide (both housemates' watches).
+    Only the primary user's own watches should land as memory_events — the
+    partner's watches must be skipped entirely, not merely hidden later."""
+    make_user(email="mack@example.com", display_name="Mack", role="primary")
+    make_user(email="amy@example.com", display_name="Amy", role="partner")
+    with SessionLocal() as db:
+        recent = [
+            {
+                "title": "Mack's Film",
+                "watched_at": "2026-07-07 20:30:00",
+                "rating": 4,
+                "poster_url": "x",
+                "user_email": "mack@example.com",
+            },
+            {
+                "title": "Amy's Film",
+                "watched_at": "2026-07-08 21:00:00",
+                "rating": 5,
+                "poster_url": "y",
+                "user_email": "amy@example.com",
+            },
+            {
+                # case-insensitive match on the primary's email
+                "title": "Mack's Other Film",
+                "watched_at": "2026-07-09 21:00:00",
+                "rating": 3,
+                "poster_url": "z",
+                "user_email": "Mack@Example.com",
+            },
+        ]
+        db.add(_mishka_snapshot("2026-07-09 23:00:00", recent))
+        db.commit()
+
+        created = mappers.map_films(db)
+        db.commit()
+        assert created == 2
+        assert mappers.map_films(db) == 0  # idempotent
+
+        rows = db.scalars(select(MemoryEvent).where(MemoryEvent.kind == "film")).all()
+        titles = {r.title for r in rows}
+        assert titles == {"Mack's Film", "Mack's Other Film"}
+        assert "Amy's Film" not in titles
+
+
+def test_film_mapper_maps_nothing_without_a_primary_user():
+    """No primary user configured yet (e.g. before first login) — nothing is
+    attributable, so nothing is mapped rather than guessing."""
+    make_user(email="amy@example.com", display_name="Amy", role="partner")
+    with SessionLocal() as db:
+        recent = [
+            {
+                "title": "Some Film",
+                "watched_at": "2026-07-07 20:30:00",
+                "rating": 4,
+                "poster_url": "x",
+                "user_email": "amy@example.com",
+            },
+        ]
+        db.add(_mishka_snapshot("2026-07-08 23:00:00", recent))
+        db.commit()
+
+        assert mappers.map_films(db) == 0
+        rows = db.scalars(select(MemoryEvent).where(MemoryEvent.kind == "film")).all()
+        assert rows == []
 
 
 def test_calendar_mapper_only_past_events():

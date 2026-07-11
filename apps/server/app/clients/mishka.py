@@ -18,7 +18,7 @@ from __future__ import annotations
 import httpx
 
 CONTRACT_FIELDS = ("recent", "watchlist_count")
-_RECENT_ITEM_FIELDS = ("title", "watched_at", "poster_url", "rating")
+_RECENT_ITEM_FIELDS = ("title", "watched_at", "poster_url", "rating", "user_email")
 
 
 class MishkaNotConfigured(RuntimeError):

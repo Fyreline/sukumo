@@ -32,7 +32,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models import CalendarEvent, MemoryEvent, Nudge, SiblingSnapshot, Workout
+from ..models import CalendarEvent, MemoryEvent, Nudge, SiblingSnapshot, User, Workout
 
 LONDON = ZoneInfo("Europe/London")
 
@@ -187,14 +187,34 @@ def map_study(session: Session) -> int:
     return created
 
 
+def _primary_email(session: Session) -> str | None:
+    """The household's primary user's email (User.role == 'primary'),
+    looked up fresh each call rather than hardcoded — see docs/AUTH.md §1
+    (role is set once, at first proxied login, from SUKUMO_PRIMARY_EMAIL).
+    Returns None if no primary user exists yet (e.g. before first login)."""
+    user = session.scalar(select(User).where(User.role == "primary"))
+    return user.email if user else None
+
+
 # ------------------------------------------------------------------ films --
 def map_films(session: Session) -> int:
     """Mishka snapshots' ``recent`` watches → memory_events(kind='film').
 
-    The read-contract (API.md §4) carries no stable watch id, so provider_uid
-    is derived from ``watched_at`` + a short hash of the title — stable across
-    re-polls (same watch → same uid) without embedding the raw title in the
-    key. The title itself is DATA and passes through to the row verbatim."""
+    Mishka's household feed carries every watch by either housemate
+    (API.md §4: ``recent[].user_email``). Sukumo's journal is Mack's — only
+    watches whose ``user_email`` matches the primary user (looked up from the
+    users table, never hardcoded) are mapped; the partner's watches are
+    skipped entirely (not stored as memory_events at all, not just hidden in
+    the UI). If there's no primary user yet, nothing is attributable, so
+    nothing is mapped.
+
+    The read-contract carries no stable watch id, so provider_uid is derived
+    from ``watched_at`` + a short hash of the title — stable across re-polls
+    (same watch → same uid) without embedding the raw title in the key. The
+    title itself is DATA and passes through to the row verbatim."""
+    primary_email = _primary_email(session)
+    if not primary_email:
+        return 0
     created = 0
     seen: set[str] = set()
     for snap in _snapshots(session, "mishka"):
@@ -207,6 +227,9 @@ def map_films(session: Session) -> int:
             watched_at = item.get("watched_at")
             title = item.get("title")
             if not watched_at or not title:
+                continue
+            item_email = item.get("user_email")
+            if not isinstance(item_email, str) or item_email.lower() != primary_email.lower():
                 continue
             title_hash = hashlib.sha1(title.encode("utf-8")).hexdigest()[:8]
             provider_uid = f"mishka:{watched_at}:{title_hash}"

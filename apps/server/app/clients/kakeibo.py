@@ -4,13 +4,11 @@ docs/phases/PHASE-3-siblings.md.
 docs/ARCHITECTURE.md §5.1 (hard rule): read-only — this module must never
 issue a write HTTP verb (POST/PUT/DELETE).
 
-Scope note: Kakeibo's own GET /api/goal/service endpoint does not exist yet
-(its repo has unrelated in-flight work and is deliberately left untouched
-this phase) — this client is still built and wired into poll_sources.py so
-the wiring costs nothing to add later. With SUKUMO_KAKEIBO_SERVICE_TOKEN
-unset (the default), ``fetch`` always raises KakeiboNotConfigured, so every
-poll cycle writes a clean 'not_configured' sync_run — never an error — until
-the token is set for real.
+Kakeibo's GET /api/goal/service shipped 2026-07-11 (its repo, routers/
+service.py) and the household deployment carries the shared token, so this
+client polls it for real. With SUKUMO_KAKEIBO_SERVICE_TOKEN unset, ``fetch``
+still raises KakeiboNotConfigured, so every poll cycle writes a clean
+'not_configured' sync_run — never an error.
 
 Snapshot contract (docs/DATA_MODEL.md §6): sibling_snapshots.payload_json
 must hold ONLY the fields API.md §4 agreed on. ``filter_payload`` is the

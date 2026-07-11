@@ -160,6 +160,157 @@ def test_milestone_event_creates_memory_event(client):
     assert res.json()["mem_kind"] == "milestone"
 
 
+# ---------------------------------------------------------------- gym -------
+def _gym_habit(user_id: int) -> int:
+    import json
+
+    from app.db import SessionLocal
+    from app.models import Habit
+
+    with SessionLocal() as db:
+        h = Habit(
+            user_id=user_id,
+            key="gym",
+            title="Gym",
+            kind="hybrid",
+            evidence="workouts:wtype in cfg",
+            active=1,
+            target_json="{}",
+            config_json=json.dumps({"wtypes": ["strength"]}),
+        )
+        db.add(h)
+        db.commit()
+        return h.id
+
+
+def test_gym_arrived_logs_habit_day_and_place(client):
+    """Geofence arrival -> a habit_events row (source tap, note geofence) AND
+    a synthetic 'Gym arrived' place row (docs/API.md #3, COACH.md #3.2)."""
+    user_id = make_user()
+    habit_id = _gym_habit(user_id)
+    headers = _mint(user_id)
+
+    res = client.post(
+        "/api/ingest/event",
+        json={"kind": "gym", "state": "arrived", "ts": "2026-06-01T18:05:00+01:00"},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["mem_kind"] == "place"
+    assert body["created"] is True
+    assert body["habit_event"] == {"habit_id": habit_id, "local_date": "2026-06-01", "created": True}
+
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.models import HabitEvent, MemoryEvent
+
+    with SessionLocal() as db:
+        mem = db.scalar(select(MemoryEvent))
+        assert mem.kind == "place"
+        assert mem.title == "Gym arrived"  # synthetic — never the payload's title
+        ev = db.scalar(select(HabitEvent).where(HabitEvent.habit_id == habit_id))
+        assert ev is not None
+        assert (ev.source, ev.note, ev.local_date, ev.value) == ("tap", "geofence", "2026-06-01", 1)
+
+
+def test_gym_arrived_is_idempotent_per_day(client):
+    """Two arrivals the same local day (left for lunch, came back) -> one
+    habit_events row; the second memory row only if its ts differs."""
+    user_id = make_user()
+    habit_id = _gym_habit(user_id)
+    headers = _mint(user_id)
+
+    first = client.post(
+        "/api/ingest/event",
+        json={"kind": "gym", "state": "arrived", "ts": "2026-06-01T10:00:00+01:00"},
+        headers=headers,
+    )
+    second = client.post(
+        "/api/ingest/event",
+        json={"kind": "gym", "state": "arrived", "ts": "2026-06-01T19:00:00+01:00"},
+        headers=headers,
+    )
+    assert first.json()["habit_event"]["created"] is True
+    assert second.json()["habit_event"]["created"] is False
+
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.models import HabitEvent
+
+    with SessionLocal() as db:
+        assert len(db.scalars(select(HabitEvent).where(HabitEvent.habit_id == habit_id)).all()) == 1
+
+
+def test_gym_left_writes_place_only(client):
+    user_id = make_user()
+    _gym_habit(user_id)
+    headers = _mint(user_id)
+
+    res = client.post(
+        "/api/ingest/event",
+        json={"kind": "gym", "state": "left", "ts": "2026-06-01T19:30:00+01:00"},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json()["habit_event"] is None
+
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.models import HabitEvent, MemoryEvent
+
+    with SessionLocal() as db:
+        assert db.scalar(select(MemoryEvent)).title == "Gym left"
+        assert db.scalars(select(HabitEvent)).all() == []
+
+
+def test_gym_title_is_never_echoed(client):
+    """A phone automation might POST its location string as title — the well
+    must keep the synthetic 'Gym arrived' instead (no location echo)."""
+    user_id = make_user()
+    _gym_habit(user_id)
+    headers = _mint(user_id)
+
+    client.post(
+        "/api/ingest/event",
+        json={"kind": "gym", "state": "arrived", "title": "PureGym Anywhere High St"},
+        headers=headers,
+    )
+
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.models import MemoryEvent
+
+    with SessionLocal() as db:
+        assert db.scalar(select(MemoryEvent)).title == "Gym arrived"
+
+
+def test_gym_arrived_without_gym_habit_still_records_place(client):
+    """No active gym habit -> the place row still lands, the habit log is
+    skipped (config is deliberate setup, never auto-invented)."""
+    headers = _mint(make_user())
+    res = client.post(
+        "/api/ingest/event",
+        json={"kind": "gym", "state": "arrived", "ts": "2026-06-01T18:05:00+01:00"},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json()["habit_event"] is None
+    assert res.json()["created"] is True
+
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.models import HabitEvent
+
+    with SessionLocal() as db:
+        assert db.scalars(select(HabitEvent)).all() == []
+
+
 def test_unknown_kind_is_rejected(client):
     headers = _mint(make_user())
     res = client.post("/api/ingest/event", json={"kind": "not-a-real-kind"}, headers=headers)

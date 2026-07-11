@@ -9,7 +9,7 @@ import { PeopleTile } from '../components/tiles/PeopleTile'
 import { StreaksTile } from '../components/tiles/StreaksTile'
 import { Tile, TileEmpty, StaleChip } from '../components/tiles/Tile'
 import { TileBoundary } from '../components/tiles/TileBoundary'
-import { TodayTile } from '../components/tiles/TodayTile'
+import { AwayChip, TodayTile } from '../components/tiles/TodayTile'
 import { VitalsTile } from '../components/tiles/VitalsTile'
 
 /** The Bridge (docs/DESIGN.md §3) — the morning tab: eight tiles in
@@ -50,12 +50,15 @@ function SlimBridge({ data }: { data: Dashboard }) {
 
   return (
     <div className="space-y-3">
-      {data.japan && (
-        <div className="rounded-lg border border-l-2 border-line border-l-clay bg-paper-mid p-4">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-clay/10 px-2.5 py-1 text-sm font-medium text-clay">
-            <span aria-hidden>⛩</span>
-            {data.japan.days_to_go === 0 ? 'Japan — it’s on' : `Japan in ${data.japan.days_to_go} days`}
-          </span>
+      {(data.japan || data.away) && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-l-2 border-line border-l-clay bg-paper-mid p-4">
+          {data.japan && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-clay/10 px-2.5 py-1 text-sm font-medium text-clay">
+              <span aria-hidden>⛩</span>
+              {data.japan.days_to_go === 0 ? 'Japan — it’s on' : `Japan in ${data.japan.days_to_go} days`}
+            </span>
+          )}
+          {data.away && <AwayChip away={data.away} />}
         </div>
       )}
 

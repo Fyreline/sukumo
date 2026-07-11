@@ -2,10 +2,12 @@
 
 By 18:30, if steps are under the configured threshold AND no workout of any type
 was logged today, one soft push — and a walk is exactly what it asks for (walks
-never satisfy the gym rule, but they satisfy this one). Suppressed if gym-day
-already fired today: never two movement pokes in one day (COACH §3.12). No push
-text ever carries the step figure — "barely moved" is a category, not a value
-(ARCHITECTURE §5.2).
+never satisfy the gym rule, but they satisfy this one). A gym ``habit_events``
+row today (the geofence arrival, or any hand log) counts as a workout here:
+being at the gym is movement even when the watch recorded nothing. Suppressed
+if gym-day already fired today: never two movement pokes in one day (COACH
+§3.12). No push text ever carries the step figure — "barely moved" is a
+category, not a value (ARCHITECTURE §5.2).
 
 Unconfigured (no ``low_movement.step_threshold`` setting) → ``not_configured``.
 """
@@ -15,7 +17,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import select
 
-from ...models import HealthSample, Nudge, Workout
+from ...models import HabitEvent, HealthSample, Nudge, Workout
 from .. import config as coach_config
 from ..proposals import LONDON, NudgeProposal, Rule, RuleResult, parse_utc, today_local, today_trigger_if_past
 
@@ -51,6 +53,18 @@ def evaluate(now: datetime, session) -> RuleResult:
     )
     if workout_today:
         return RuleResult()
+
+    # a gym habit_events row today (geofence arrival / hand log) is movement
+    # too — the machines don't reach the watch, but he was at the gym
+    gym_habit = coach_config.get_habit(session, "gym")
+    if gym_habit is not None:
+        gym_logged_today = session.scalar(
+            select(HabitEvent).where(
+                HabitEvent.habit_id == gym_habit.id, HabitEvent.local_date == today
+            )
+        )
+        if gym_logged_today is not None:
+            return RuleResult()
 
     steps = sum(
         s.value

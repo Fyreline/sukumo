@@ -25,14 +25,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.coach import config as coach_config  # noqa: E402
 from app.db import SessionLocal, engine  # noqa: E402
 from app.memory import assemble as assemble_mod  # noqa: E402
 from app.memory import digest as digest_mod  # noqa: E402
@@ -48,12 +46,10 @@ def _utcnow_str() -> str:
 
 
 def _photos_library(session) -> str | None:
-    """Opt-in library path: env wins, then the settings row, else None."""
-    env = os.environ.get("SUKUMO_PHOTOS_LIBRARY")
-    if env:
-        return env
-    setting = coach_config.get_setting(session, "photos_library_path", None)
-    return setting if isinstance(setting, str) and setting else None
+    """Opt-in library path: env wins, then the settings row, else None —
+    the shared resolution now lives in app.memory.photos (the journal's
+    thumb endpoints use the same one)."""
+    return photos_mod.resolve_library_path(session)
 
 
 def run(argv: list[str] | None = None) -> dict:

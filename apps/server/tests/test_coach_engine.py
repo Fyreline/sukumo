@@ -264,6 +264,47 @@ async def test_four_day_gap_no_office_fires_fallback_at_1745():
 
 
 @pytest.mark.anyio
+async def test_gym_day_satisfied_by_geofence_habit_event():
+    """A gym-geofence arrival (habit_events row, source tap) counts as done —
+    neither the 16:45 office-linked nudge nor the 17:45 fallback fires
+    (COACH §3.2: machine sessions never reach the watch)."""
+    uid = _primary()
+    _gym_habit(uid)
+    add_memory_event("place", "office:arrived:2026-07-15 08:30:00", london(2026, 7, 15, 8, 30), "Office arrived")
+    from app.models import Habit
+
+    with SessionLocal() as db:
+        habit_id = db.scalar(select(Habit.id).where(Habit.key == "gym"))
+    from tests.coach_helpers import add_habit_event
+
+    add_habit_event(habit_id, "2026-07-15", source="tap")
+
+    await _tick(london(2026, 7, 15, 16, 45))
+    await _tick(london(2026, 7, 15, 17, 45))
+    assert not [n for n in _nudges() if n[0] == "gym-day"]
+
+
+@pytest.mark.anyio
+async def test_low_movement_suppressed_by_gym_habit_event():
+    """Low steps + no workout, but a gym habit_events row today (the geofence
+    arrival) — being at the gym is movement, no poke (COACH §3.12)."""
+    uid = _primary()
+    _gym_habit(uid)
+    add_setting("low_movement", {"step_threshold": 5000})
+    add_health_sample(uid, "step_count", 1200, london(2026, 7, 15, 12, 0))
+    from app.models import Habit
+
+    with SessionLocal() as db:
+        habit_id = db.scalar(select(Habit.id).where(Habit.key == "gym"))
+    from tests.coach_helpers import add_habit_event
+
+    add_habit_event(habit_id, "2026-07-15", source="tap")
+
+    await _tick(london(2026, 7, 15, 18, 30))
+    assert not [n for n in _nudges() if n[0] == "low-movement"]
+
+
+@pytest.mark.anyio
 async def test_low_movement_fires_at_1830_when_steps_low_no_workout():
     uid = _primary()
     add_setting("low_movement", {"step_threshold": 5000})

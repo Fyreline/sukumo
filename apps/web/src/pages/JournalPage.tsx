@@ -8,7 +8,9 @@ import {
   eventTime,
   fetchDigests,
   fetchJournalDay,
+  fetchJournalPhotos,
   fetchJournalRange,
+  fetchPhotoThumb,
   patchMood,
   photosDeepLink,
   prettyDate,
@@ -17,6 +19,7 @@ import {
   type JournalDaySummary,
   type JournalEvent,
   type Mood,
+  type PhotoEntry,
 } from '../journal'
 
 /** The journal (docs/MEMORY.md §5, PHASE-7 item 5): a vertical scroll of day
@@ -160,6 +163,135 @@ function MoodRow({
   )
 }
 
+// -------------------------------------------------------------- photo strip --
+/** The day's photos as a collapsible thumbnail row (MEMORY §5). Thumbs are
+ * authed fetches (a bare <img src> can't carry the bearer header), so each
+ * one is blob → object URL, revoked on collapse/unmount. The Photos link
+ * stays, labelled honestly: macOS/iOS expose NO public URL scheme to a
+ * specific photo or date — photos-redirect:// can only open the app. */
+const MAX_THUMBS = 24
+
+function PhotoStrip({ date, count }: { date: string; count: number }) {
+  const [open, setOpen] = useState(false)
+  const [entries, setEntries] = useState<PhotoEntry[] | 'loading' | 'error' | 'unconfigured' | null>(null)
+  const [thumbs, setThumbs] = useState<Record<string, string>>({}) // uuid -> object URL
+  const urls = useRef<string[]>([])
+
+  const revokeAll = useCallback(() => {
+    for (const u of urls.current) URL.revokeObjectURL(u)
+    urls.current = []
+    setThumbs({})
+  }, [])
+
+  // Unmount (day collapsed, page left): free every object URL.
+  useEffect(
+    () => () => {
+      for (const u of urls.current) URL.revokeObjectURL(u)
+    },
+    [],
+  )
+
+  async function toggle() {
+    if (open) {
+      setOpen(false)
+      revokeAll()
+      setEntries(null) // refetched on next open — cheap, and never a stale strip
+      return
+    }
+    setOpen(true)
+    setEntries('loading')
+    try {
+      const res = await fetchJournalPhotos(date)
+      if (!res.configured) {
+        setEntries('unconfigured')
+        return
+      }
+      setEntries(res.photos)
+      // Lazy thumbs: fire the (small, cached-server-side) fetches in parallel;
+      // each shimmer square fills in as its blob lands. Failures stay quiet —
+      // the strip degrades to shimmers, never an error wall.
+      for (const p of res.photos.slice(0, MAX_THUMBS)) {
+        fetchPhotoThumb(p.uuid).then(
+          (blob) => {
+            const url = URL.createObjectURL(blob)
+            urls.current.push(url)
+            setThumbs((m) => ({ ...m, [p.uuid]: url }))
+          },
+          () => undefined,
+        )
+      }
+    } catch {
+      setEntries('error')
+    }
+  }
+
+  const overflow = Array.isArray(entries) ? Math.max(0, entries.length - MAX_THUMBS) : 0
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        className="flex min-h-11 items-center gap-1.5 text-sm text-ink-mid"
+      >
+        <span>
+          {count} photo{count === 1 ? '' : 's'} this day
+        </span>
+        <span aria-hidden className={`text-ink-soft transition-transform ${open ? 'rotate-90' : ''}`}>
+          ›
+        </span>
+      </button>
+
+      {open && entries === 'loading' && (
+        <div className="mt-1 flex gap-2" role="status" aria-label="Loading photo previews">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="h-20 w-20 animate-pulse rounded-md bg-paper-deep motion-reduce:animate-none" />
+          ))}
+        </div>
+      )}
+      {open && entries === 'error' && (
+        <p className="mt-1 text-xs text-ink-soft">Couldn’t load the previews just now.</p>
+      )}
+      {open && entries === 'unconfigured' && (
+        <p className="mt-1 text-xs text-ink-soft">No photo library is wired up on the server yet.</p>
+      )}
+      {open && Array.isArray(entries) && (
+        <ul className="mt-1 flex gap-2 overflow-x-auto pb-1" aria-label={`Photo previews, ${date}`}>
+          {entries.slice(0, MAX_THUMBS).map((p) => (
+            <li key={p.uuid} className="shrink-0">
+              {thumbs[p.uuid] ? (
+                <img
+                  src={thumbs[p.uuid]}
+                  alt={`Photo at ${p.taken_at}${p.place ? `, ${p.place}` : ''}`}
+                  className="h-20 w-20 rounded-md border border-line object-cover"
+                />
+              ) : (
+                <span
+                  className="block h-20 w-20 animate-pulse rounded-md bg-paper-deep motion-reduce:animate-none"
+                  aria-hidden
+                />
+              )}
+            </li>
+          ))}
+          {overflow > 0 && (
+            <li className="flex h-20 shrink-0 items-center px-1 font-mono text-[11px] text-ink-soft">
+              +{overflow} more in Photos
+            </li>
+          )}
+        </ul>
+      )}
+
+      <p className="mt-1 text-xs text-ink-soft">
+        <a href={photosDeepLink(date)} className="font-medium text-sky underline underline-offset-2">
+          Open Photos ↗
+        </a>{' '}
+        (opens the Photos app — it can’t jump to a specific day)
+      </p>
+    </div>
+  )
+}
+
 // -------------------------------------------------------------- day detail --
 function StatChip({ label, value }: { label: string; value: string }) {
   return (
@@ -260,17 +392,7 @@ function DayDetail({
         </div>
       ))}
 
-      {photoCount > 0 && (
-        <p className="text-sm text-ink-mid">
-          {photoCount} photo{photoCount === 1 ? '' : 's'} this day —{' '}
-          <a
-            href={photosDeepLink(detail.local_date)}
-            className="font-medium text-sky underline underline-offset-2"
-          >
-            open Photos ↗
-          </a>
-        </p>
-      )}
+      {photoCount > 0 && <PhotoStrip date={detail.local_date} count={photoCount} />}
 
       <MoodRow date={detail.local_date} mood={detail.mood} onSaved={onSaved} />
     </div>

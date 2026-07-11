@@ -33,6 +33,14 @@ GET  /api/nudges/act/{token}          (open) one-click action link used INSIDE n
                                       --   idempotent, expires with the nudge
 GET  /api/briefings/today|{date}
 GET  /api/journal/{date}, /api/journal?from=&to=      PATCH /api/journal/{date} (mood)
+GET  /api/journal/{date}/photos  -- that day's per-photo metadata {uuid, taken_at,
+                                 --   place} for the journal's thumb strip (MEMORY §5);
+                                 --   primary-only, {photos: [], configured: false}
+                                 --   when no Photos library is wired up
+GET  /api/photos/{uuid}/thumb    -- small derivative JPEG (≤512px, cached in
+                                 --   gitignored data/thumbs/) — NEVER an original;
+                                 --   primary-only, 404 for unknown/invalid uuids,
+                                 --   Cache-Control: private (and never SW-cached)
 GET  /api/digests?kind=weekly
 GET  /api/status            -- sibling/source health: latest sync_runs + snapshot ages
 ```
@@ -95,16 +103,21 @@ Every call writes a `sync_runs` row — the freshness rule watches it.
 For iOS **Shortcuts automations** and anything else with a single fact to report:
 
 ```json
-{ "kind": "office" | "reading" | "place" | "manual" | "milestone",
+{ "kind": "office" | "gym" | "reading" | "place" | "manual" | "milestone",
   "state": "arrived" | "left" | null,
   "value": 1, "title": "…optional…", "ts": "…optional, default now…" }
 ```
 
 Routing: `reading` → `habit_events` (source `tap`); `office` arrived/left →
-`memory_events(kind=place)` + feeds the office-day rule's history; `manual`/`milestone`
+`memory_events(kind=place)` + feeds the office-day rule's history; `gym` arrived/left →
+`memory_events(kind=place)` with a synthetic "Gym arrived/left" title (any `title` in
+the payload is IGNORED — a geofence automation must never echo its location string),
+and `arrived` ALSO writes a `habit_events` row for the active `gym` habit (source
+`tap`, note `geofence`, idempotent per local day) so machine-only sessions the watch
+never records still satisfy the gym-day rule (COACH §3.2); `manual`/`milestone`
 → `memory_events`. Planned Shortcuts (set up in Phase 8, listed in PRIVATE.md checklist):
-office geofence arrive/leave; a home-screen "📖 logged" one-tap; optionally a share-sheet
-"remember this" → `manual`.
+office geofence arrive/leave; a gym geofence arrive; a home-screen "📖 logged" one-tap;
+optionally a share-sheet "remember this" → `manual`.
 
 ## 4. Sibling read contracts (the Phase-3 patches)
 

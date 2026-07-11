@@ -1,18 +1,23 @@
-"""Generic Shortcuts/scripts events (office geofence, one-tap reading log,
-share-sheet notes, ...) -> memory_events and habit_events --
+"""Generic Shortcuts/scripts events (office/gym geofences, one-tap reading
+log, share-sheet notes, ...) -> memory_events and habit_events --
 docs/DATA_MODEL.md, docs/API.md #3, docs/phases/PHASE-2-ingestion.md.
 
 Payload (API.md #3)::
 
-    {"kind": "office" | "reading" | "place" | "manual" | "milestone",
+    {"kind": "office" | "gym" | "reading" | "place" | "manual" | "milestone",
      "state": "arrived" | "left" | null,
      "value": 1, "title": "...optional...", "ts": "...optional, default now..."}
 
 Routing: ``reading`` -> ``habit_events`` (source ``'tap'``, idempotent per
 Europe/London local day); ``office`` arrived/left -> ``memory_events(kind=
-'place')``; ``place``/``manual``/``milestone`` -> ``memory_events`` directly.
-All local-date maths happens at use time (DATA_MODEL preamble), never baked
-into storage.
+'place')``; ``gym`` arrived/left -> the same place row (synthetic "Gym ..."
+title -- the payload's title is IGNORED so a phone automation can never echo
+a location string into the well), and ``arrived`` ALSO logs the day against
+the active ``gym`` habit (source ``'tap'``, note ``'geofence'``, idempotent
+per day) so machine-only sessions the watch never records still count
+(docs/COACH.md #3.2); ``place``/``manual``/``milestone`` -> ``memory_events``
+directly. All local-date maths happens at use time (DATA_MODEL preamble),
+never baked into storage.
 """
 from __future__ import annotations
 
@@ -27,7 +32,7 @@ from sqlalchemy.orm import Session
 from ..models import Habit, HabitEvent, MemoryEvent, User
 
 LONDON = ZoneInfo("Europe/London")
-ALLOWED_KINDS = {"office", "reading", "place", "manual", "milestone"}
+ALLOWED_KINDS = {"office", "gym", "reading", "place", "manual", "milestone"}
 
 
 def _utcnow_str() -> str:
@@ -109,10 +114,19 @@ def ingest_event(session: Session, token_user_id: int | None, payload: dict) -> 
         session.commit()
         return {"kind": "reading", "habit_id": habit.id, "local_date": local_date, "created": created}
 
-    # office / place / manual / milestone -> memory_events. user_id stays
-    # whatever the token carries (possibly None -- "household events allowed",
-    # DATA_MODEL #5).
-    if kind == "office":
+    # office / gym / place / manual / milestone -> memory_events. user_id
+    # stays whatever the token carries (possibly None -- "household events
+    # allowed", DATA_MODEL #5).
+    habit_event: dict | None = None
+    if kind == "gym":
+        mem_kind = "place"
+        # Synthetic title ONLY -- a gym geofence automation must never echo
+        # its location string into the memory well (docs/API.md #3).
+        title = None
+        default_title = f"Gym {state}" if state else "Gym"
+        if state == "arrived":
+            habit_event = _log_gym_habit_day(session, ts)
+    elif kind == "office":
         mem_kind = "place"
         default_title = f"Office {state}" if state else "Office"
     elif kind == "place":
@@ -144,4 +158,34 @@ def ingest_event(session: Session, token_user_id: int | None, payload: dict) -> 
         )
         created = True
     session.commit()
-    return {"kind": kind, "mem_kind": mem_kind, "provider_uid": provider_uid, "created": created}
+    out = {"kind": kind, "mem_kind": mem_kind, "provider_uid": provider_uid, "created": created}
+    if kind == "gym":
+        out["habit_event"] = habit_event
+    return out
+
+
+def _log_gym_habit_day(session: Session, ts_utc: str) -> dict | None:
+    """A gym-geofence arrival counts the day against the active ``gym`` habit
+    (COACH.md #3.2: machine-only sessions never reach the watch). source
+    ``'tap'`` (a human-signal row, never rebuilt over -- DATA_MODEL #2), note
+    ``'geofence'``, idempotent per (habit, local day, source). Returns None --
+    memory event only -- when no active gym habit exists: the habit's config
+    (which wtypes count, etc.) is deliberate setup, never auto-invented."""
+    habit = session.scalar(select(Habit).where(Habit.key == "gym", Habit.active == 1))
+    if habit is None:
+        return None
+    local_date = _local_date(ts_utc)
+    existing = session.scalar(
+        select(HabitEvent).where(
+            HabitEvent.habit_id == habit.id,
+            HabitEvent.local_date == local_date,
+            HabitEvent.source == "tap",
+        )
+    )
+    created = False
+    if existing is None:
+        session.add(
+            HabitEvent(habit_id=habit.id, local_date=local_date, value=1, source="tap", note="geofence")
+        )
+        created = True
+    return {"habit_id": habit.id, "local_date": local_date, "created": created}

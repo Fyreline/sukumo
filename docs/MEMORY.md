@@ -20,7 +20,7 @@ journal harder. The engine's job is *assembly and retrieval*, not creation.
 | Calendar | `calendar` | ics_uid | title + location of *attended* (past) events |
 | Shortcuts office/geofence | `place` | event id | office days, notable arrivals |
 | Kakeibo milestone (via bus) | `finance` | nudge dedupe_key | "crossed 45%" — labels only |
-| Photos (osxphotos, if Q4 yes) | `photo` | photo uuid | count + times + place names per day; **metadata only, no image files copied or uploaded** — the journal links into Photos via time-range deep link |
+| Photos (osxphotos, if Q4 yes) | `photo` | photo uuid | count + times + place names per day; **metadata only in the well, no originals ever copied or uploaded**. The journal's thumb strip is served separately: small *derivative* JPEGs on demand (`/api/photos/{uuid}/thumb`, primary-only), cached in gitignored `data/thumbs/` — never originals, never in the repo |
 | `/api/ingest/event` manual | `manual`/`milestone` | event id | share-sheet "remember this" |
 | Books (status→finished) | `milestone` | `book:<id>` | "finished *Title*" |
 
@@ -57,5 +57,10 @@ system runs; it's the compounding payoff of starting now.
 on a `--color-liquid` thread — the Michi trail motif repurposed as a timeline), month
 jump-nav, thin-day cards visually quieter. Trip ranges render with a chapter header
 (Japan gets the crimson torii treatment). Day card tap → detail: stats row
-(sparklines), events by kind, photo count linking into Photos, the mood one-tap.
-Search v1 is a client-side title filter; anything fancier waits for real need.
+(sparklines), events by kind, the day's photos as a collapsible thumbnail strip
+("N photos ›" → a lazy-loaded row of authed derivative thumbs, blob→object-URL,
+revoked on collapse), the mood one-tap. An "Open Photos" link remains but is
+labelled honestly: **macOS/iOS expose no public URL scheme to a specific photo,
+moment or date** — `photos-redirect://` can only open the app, so the in-journal
+thumbs are the way to actually *see* the day. Search v1 is a client-side title
+filter; anything fancier waits for real need.

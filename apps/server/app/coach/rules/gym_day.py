@@ -11,9 +11,12 @@ nudge lands per day:
    configured gap-floor window (default 4 days, the one doc-blessed default) →
    a gentler nudge.
 
-Walks never satisfy this rule (only ``wtype`` in the configured gym set). Tone
-is invitation, never guilt (COACH §2/§5). Unconfigured (no gym habit, or no
-``wtypes`` in its config_json) → ``not_configured``, never a guessed nudge.
+A day is "done" when EITHER a qualifying workout (``wtype`` in the configured
+gym set) OR a gym ``habit_events`` row exists — the gym-geofence arrival
+(app/ingest/events.py) logs the latter, so machine-only sessions the watch
+never records still count. Walks never satisfy this rule. Tone is invitation,
+never guilt (COACH §2/§5). Unconfigured (no gym habit, or no ``wtypes`` in its
+config_json) → ``not_configured``, never a guessed nudge.
 """
 from __future__ import annotations
 
@@ -21,7 +24,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import select
 
-from ...models import MemoryEvent, Workout
+from ...models import HabitEvent, MemoryEvent, Workout
 from .. import config as coach_config
 from ..proposals import (
     LONDON,
@@ -41,11 +44,18 @@ def _local_date(ts_utc: str) -> str:
     return parse_utc(ts_utc).astimezone(LONDON).date().isoformat()
 
 
-def _gym_dates(session, user_id: int, wtypes: list[str]) -> set[str]:
+def _gym_dates(session, user_id: int, habit_id: int, wtypes: list[str]) -> set[str]:
+    """Days with a qualifying workout OR a gym habit_events row (the geofence
+    arrival, or any hand log) — one set feeds both the done-today check and
+    the gap floor, so a machine-only session silences both nudges."""
     rows = session.scalars(
         select(Workout).where(Workout.user_id == user_id, Workout.wtype.in_(wtypes))
     ).all()
-    return {_local_date(w.ts_start) for w in rows}
+    dates = {_local_date(w.ts_start) for w in rows}
+    dates.update(
+        session.scalars(select(HabitEvent.local_date).where(HabitEvent.habit_id == habit_id)).all()
+    )
+    return dates
 
 
 def _office_arrived_today(session, today: str) -> bool:
@@ -67,7 +77,7 @@ def evaluate(now: datetime, session) -> RuleResult:
     user_id = habit.user_id
     today = today_local(now)
     today_str = today.isoformat()
-    gym_dates = _gym_dates(session, user_id, wtypes)
+    gym_dates = _gym_dates(session, user_id, habit.id, wtypes)
     done_today = today_str in gym_dates
     gap_floor = int(cfg.get("gap_floor_days", coach_config.DEFAULT_GYM_GAP_FLOOR_DAYS))
     exempt_weekday = cfg.get("exempt_weekday")  # e.g. "Fri" — can swap weeks (config)

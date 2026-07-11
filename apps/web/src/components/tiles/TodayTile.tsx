@@ -1,4 +1,4 @@
-import type { Dashboard, WeatherDay } from '../../dashboard'
+import { awayLabel, type Away, type Dashboard, type WeatherDay } from '../../dashboard'
 import { Markdown } from '../Markdown'
 import { Tile, TileEmpty } from './Tile'
 
@@ -73,6 +73,18 @@ function WeatherGlyph({ code }: { code: number }) {
   )
 }
 
+/** The quiet away chip (COACH §6) — kraft tone, no animation: the coach is
+ * off his back, the bridge just notes it. Shared with the partner's slim
+ * bridge (BridgePage). */
+export function AwayChip({ away }: { away: Away }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-kraft/15 px-2.5 py-1 text-xs font-medium text-ink-mid">
+      <span aria-hidden>✈️</span>
+      {awayLabel(away)}
+    </span>
+  )
+}
+
 function WeatherChip({ place, day }: { place: string; day: WeatherDay }) {
   const summary = `${place}: high ${Math.round(day.temp_max)}°, low ${Math.round(day.temp_min)}°, ${day.precip_prob}% chance of rain`
   return (
@@ -112,6 +124,7 @@ export function TodayTile({ data }: { data: Dashboard }) {
             {data.japan.days_to_go === 0 ? 'Japan — it’s on' : `Japan in ${data.japan.days_to_go} days`}
           </span>
         )}
+        {data.away && <AwayChip away={data.away} />}
       </div>
 
       {weather ? (

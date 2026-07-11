@@ -3,7 +3,7 @@
 // server 403s role='partner', and App.tsx never routes the tab for them.
 // Assembly is a server-side job: this surface is reads plus the single
 // optional ``mood`` tap (the ONE human input on the whole page).
-import { get, patch } from './api'
+import { get, getBlob, patch } from './api'
 
 export type Mood = 'great' | 'good' | 'ok' | 'low' | 'rough'
 
@@ -79,6 +79,30 @@ export function fetchDigests(): Promise<{ digests: DigestRow[] }> {
   return get<{ digests: DigestRow[] }>('/api/digests')
 }
 
+/** One photo's metadata from GET /api/journal/{date}/photos (MEMORY §5). */
+export interface PhotoEntry {
+  uuid: string
+  taken_at: string // 'HH:MM', library-local
+  place: string | null
+}
+
+export interface JournalDayPhotos {
+  date: string
+  photos: PhotoEntry[]
+  configured: boolean // false when no Photos library is wired up server-side
+}
+
+export function fetchJournalPhotos(date: string): Promise<JournalDayPhotos> {
+  return get<JournalDayPhotos>(`/api/journal/${date}/photos`)
+}
+
+/** Authed thumb fetch → Blob (primary-only, small derivative JPEG — the
+ * server never serves originals). Callers object-URL it and revoke on
+ * collapse/unmount. */
+export function fetchPhotoThumb(uuid: string): Promise<Blob> {
+  return getBlob(`/api/photos/${uuid}/thumb`)
+}
+
 /** Assembly's deterministic slot order (memory/assemble.py _KIND_ORDER) —
  * reused so grouped events and pearls read in the same order everywhere. */
 export const KIND_ORDER = [
@@ -122,10 +146,10 @@ export function eventTime(ts: string): string {
   })
 }
 
-/** The journal's Photos hand-off (MEMORY §2: metadata only, the journal
- * links INTO Photos). No public time-range URL scheme exists yet, so this
- * opens the Photos app; swap in the documented range link when the photo
- * mapper lands (HANDOFF Q4). */
+/** The journal's Photos hand-off. macOS/iOS expose NO public URL scheme to a
+ * specific photo, moment or date — photos-redirect:// can only open the app —
+ * so the UI labels this honestly ("opens the Photos app") and the thumb strip
+ * (fetchJournalPhotos/fetchPhotoThumb) carries the actual previews. */
 export function photosDeepLink(_localDate: string): string {
   return 'photos-redirect://'
 }

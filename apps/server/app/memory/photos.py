@@ -1,22 +1,34 @@
-"""Photo metadata mapper — docs/MEMORY.md §2, HANDOFF Q4.
+"""Photo metadata mapper + journal thumbnails — docs/MEMORY.md §2/§5, HANDOFF Q4.
 
-**Metadata only.** This module reads *counts, time ranges and place names* out
+**Metadata first.** This module reads *counts, time ranges and place names* out
 of a macOS Photos library via ``osxphotos`` and writes one ``memory_events``
-row per local day (kind ``photo``). It NEVER copies, exports, uploads or reads
-image pixels; originals are not required (Q4: osxphotos reads metadata fine on
-an optimised-storage library). The journal links into Photos with a time-range
-deep link — no file ever leaves the Mac.
+row per local day (kind ``photo``). The mapper NEVER copies, exports, uploads
+or reads image pixels; originals are not required (Q4: osxphotos reads metadata
+fine on an optimised-storage library).
 
-**Opt-in.** The mapper is inert unless a library path is supplied (the nightly
-agent passes ``settings['photos_library_path']``; the test suite never sets it,
-so assembly is hermetic). With no path — or with osxphotos absent, or the path
-missing — it returns ``{"status": "not_configured"}`` and writes nothing. This
-is the graceful-degrade path when HANDOFF Q4 is "no library".
+**Thumbnails (MEMORY §5).** The journal's photo strip is served small
+*derivative* JPEGs on demand: ``photos_for_date`` lists a day's per-photo
+metadata and ``export_thumb`` converts the SMALLEST existing Photos derivative
+(never an original) into a ≤512px JPEG cached under ``data/thumbs/`` —
+gitignored, served only to the authed primary (routers/journal.py). No image
+ever leaves the household: the tunnel-fronted API is the same authed door as
+every other journal read.
+
+**Opt-in.** Everything here is inert unless a library path is supplied (env
+``SUKUMO_PHOTOS_LIBRARY`` or the ``photos_library_path`` setting — see
+``resolve_library_path``; the test suite never sets either, so assembly is
+hermetic). With no path — or with osxphotos absent, or the path missing — the
+mapper returns ``{"status": "not_configured"}`` and writes nothing. This is
+the graceful-degrade path when HANDOFF Q4 is "no library".
 """
 from __future__ import annotations
 
 import json
-from collections import defaultdict
+import os
+import re
+import subprocess
+import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -144,3 +156,118 @@ def map_photos(
 def _noon_utc(local_date: str) -> str:
     dt = datetime.fromisoformat(f"{local_date}T12:00:00").replace(tzinfo=LONDON)
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
+# ====================== journal thumbnails (MEMORY §5) ======================
+
+# osxphotos photo uuids — strict shape so the thumb cache filename can never
+# be steered anywhere (the uuid IS the filename under data/thumbs/).
+UUID_RE = re.compile(r"^[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}$")
+
+THUMB_MAX_PX = 512  # longest edge — a strip thumbnail, nowhere near an original
+THUMB_JPEG_QUALITY = "70"  # sips formatOptions; keeps a 512px thumb ≲100KB
+
+# PhotosDB parses the whole library database on open (tens of seconds on a
+# real library), so the API process keeps one instance and refreshes it on a
+# TTL — new photos appear in the journal only after the nightly mapper runs
+# anyway, so a stale handle here costs nothing visible.
+_DB_TTL_S = 6 * 3600
+_db_lock = threading.Lock()
+_db_cache: dict = {"path": None, "db": None, "loaded_at": 0.0}
+
+
+def resolve_library_path(session: Session) -> str | None:
+    """Opt-in library path: env wins, then the settings row, else None —
+    the same resolution the nightly agent uses (scripts/assemble_day.py)."""
+    env = os.environ.get("SUKUMO_PHOTOS_LIBRARY")
+    if env:
+        return env
+    from ..coach import config as coach_config  # noqa: PLC0415 — avoid import cycle at module load
+
+    setting = coach_config.get_setting(session, "photos_library_path", None)
+    return setting if isinstance(setting, str) and setting else None
+
+
+def _photosdb(library_path: str):
+    """A cached osxphotos.PhotosDB for the library (see _DB_TTL_S). Raises
+    ImportError when osxphotos is absent — callers degrade to 'no photos'."""
+    import osxphotos  # noqa: PLC0415 — optional, deferred so absence degrades gracefully
+
+    with _db_lock:
+        fresh = (
+            _db_cache["db"] is not None
+            and _db_cache["path"] == library_path
+            and time.monotonic() - _db_cache["loaded_at"] < _DB_TTL_S
+        )
+        if not fresh:
+            _db_cache["db"] = osxphotos.PhotosDB(
+                dbfile=str(Path(library_path) / "database" / "Photos.sqlite")
+            )
+            _db_cache["path"] = library_path
+            _db_cache["loaded_at"] = time.monotonic()
+        return _db_cache["db"]
+
+
+def photos_for_date(library_path: str, local_date: str) -> list[dict]:
+    """Per-photo metadata for one local day: ``[{uuid, taken_at, place}]``,
+    sorted by time. Same date semantics as the mapper (photo.date is the
+    library's local datetime). Metadata only — no pixels touched here."""
+    try:
+        db = _photosdb(library_path)
+    except ImportError:
+        return []
+    out = []
+    for photo in db.photos():
+        when = photo.date
+        if when is None or when.date().isoformat() != local_date:
+            continue
+        place = getattr(photo, "place", None)
+        name = getattr(place, "name", None) if place else None
+        out.append({"uuid": photo.uuid, "taken_at": when.strftime("%H:%M"), "place": name})
+    out.sort(key=lambda p: (p["taken_at"], p["uuid"]))
+    return out
+
+
+def export_thumb(library_path: str, uuid: str, cache_dir: Path) -> Path | None:
+    """A small JPEG thumbnail for one photo, cached at ``cache_dir/{uuid}.jpg``
+    so each photo is exported exactly once. Sources the SMALLEST existing
+    Photos *derivative* (never the original) and squeezes it through sips to
+    ≤512px JPEG. Returns None (→ 404) for unknown uuids, photos with no local
+    derivative, or a failed conversion — never an exception to the router."""
+    if not UUID_RE.match(uuid):
+        return None
+    dest = cache_dir / f"{uuid}.jpg"
+    if dest.exists():
+        return dest
+    try:
+        db = _photosdb(library_path)
+        photo = db.get_photo(uuid)
+    except ImportError:
+        return None
+    if photo is None:
+        return None
+    derivatives = [Path(p) for p in (photo.path_derivatives or []) if p and Path(p).exists()]
+    if not derivatives:
+        return None
+    src = min(derivatives, key=lambda p: p.stat().st_size)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    tmp = cache_dir / f"{uuid}.partial.jpg"
+    try:
+        subprocess.run(
+            [
+                "sips",
+                "-s", "format", "jpeg",
+                "-s", "formatOptions", THUMB_JPEG_QUALITY,
+                "-Z", str(THUMB_MAX_PX),
+                str(src),
+                "--out", str(tmp),
+            ],
+            check=True,
+            capture_output=True,
+            timeout=30,
+        )
+        tmp.replace(dest)
+        return dest
+    except (subprocess.SubprocessError, OSError):
+        tmp.unlink(missing_ok=True)
+        return None

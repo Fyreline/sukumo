@@ -55,10 +55,14 @@ here).
    LLM polish is HANDOFF Q10.
 2. **gym-day** — reshaped per HANDOFF Q11: the expectation is **office-day-linked**.
    On a confirmed office day (geofence arrival) that isn't the configured exempt
-   day ⚙ (PRIVATE §4 — it can swap weeks, so it's config) with no gym workout
-   (`wtype ∈ gym set ⚙`) logged by 16:45 → propose at 16:45 ("in the office with no
+   day ⚙ (PRIVATE §4 — it can swap weeks, so it's config) with no gym session
+   logged by 16:45 → propose at 16:45 ("in the office with no
    session yet — gym on the way home?"). Fallback floor regardless of location: no
-   gym workout in ⚙4 days → 17:45 nudge. Walks never satisfy this rule. dedupe
+   gym session in ⚙4 days → 17:45 nudge. A day counts as done when EITHER a
+   qualifying workout (`wtype ∈ gym set ⚙`) OR a gym `habit_events` row exists —
+   the gym-geofence arrival (API §3 `kind: gym`) writes the latter, so
+   machine-only sessions the watch never records still count, for both the
+   done-today check and the gap floor. Walks never satisfy this rule. dedupe
    `gym:<date>`, cooldown 24h. Tone: invitation, not guilt.
 3. **reading** — habit `reading` has no `habit_events` in ⚙2 days → 21:15 push with
    the one-tap action ("20 minutes tonight? ✓ = logged"). The ntfy action button hits
@@ -96,7 +100,9 @@ here).
     `japan:<days>`. (Sunsets after the trip; the memory engine takes over.)
 12. **low-movement** — from HANDOFF Q11: by 18:30, steps < ⚙ threshold AND no workout
     of any type today → one gentle push ("barely moved today — even a short evening
-    walk counts"). Walks don't satisfy rule 2, but they're exactly what this rule
+    walk counts"). A gym `habit_events` row today (the geofence arrival, or any hand
+    log) counts as a workout here — being at the gym is movement even when the watch
+    recorded nothing. Walks don't satisfy rule 2, but they're exactly what this rule
     asks for. dedupe `move:<date>`, inherently daily; **suppressed if rule 2 already
     fired today** — never two movement pokes in one day.
 

@@ -90,12 +90,21 @@ export interface BriefingBlock {
   composed_by: string
 }
 
+/** Away mode (COACH.md §6): null when home, else the detected trip's title
+ * (may itself be null — an untitled calendar span) and the last away day.
+ * Household-level and harmless, so BOTH roles receive it. */
+export interface Away {
+  title: string | null
+  until: string | null // 'YYYY-MM-DD'
+}
+
 export interface Dashboard {
   generated_at: string
   date: string
   role: 'primary' | 'partner'
   siblings: SiblingStatus[]
   japan: { days_to_go: number } | null
+  away: Away | null
   // primary-only sections — the server omits them entirely for role=partner
   // (DESIGN §3 partner portal; enforced server-side, tested server-side).
   briefing?: BriefingBlock | null
@@ -111,6 +120,19 @@ export interface Dashboard {
 
 export function fetchDashboard(): Promise<{ data: Dashboard; stale: boolean }> {
   return getWithStale<Dashboard>('/api/dashboard')
+}
+
+/** "Skye · until 14 Jul" — the quiet away chip's text (Today tile + slim
+ * bridge). Untitled trips read as just "Away"; a missing until drops the
+ * date clause rather than inventing one. */
+export function awayLabel(away: Away): string {
+  const title = away.title?.trim() || 'Away'
+  if (!away.until) return title
+  const until = new Date(`${away.until}T12:00:00`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+  })
+  return `${title} · until ${until}`
 }
 
 /** "just now" / "4m" / "3h" / "2d" — the tile-corner age chip. */

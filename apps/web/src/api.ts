@@ -91,6 +91,13 @@ export function get<T>(path: string): Promise<T> {
   return request<T>(path)
 }
 
+/** Authed binary GET → Blob (journal photo thumbs). A bare <img src> can't
+ * carry the bearer header, so callers fetch the blob and object-URL it —
+ * and MUST revoke that URL when done (JournalPage's photo strip does). */
+export function getBlob(path: string): Promise<Blob> {
+  return rawRequest(path).then((res) => res.blob())
+}
+
 /** JSON POST twin of get<T>() — feature modules own the body/response types. */
 export function post<T>(path: string, body: unknown): Promise<T> {
   return request<T>(path, {

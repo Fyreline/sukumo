@@ -33,6 +33,14 @@ health_samples   id, user_id, metric, ts_start, ts_end, value REAL, unit, source
                  --   unknown metrics stored verbatim, never dropped
 workouts         id, user_id, wtype, ts_start, ts_end, duration_s, kcal, distance_m,
                  source, provider_uid, UNIQUE(user_id, provider_uid, source)
+location_points  id, user_id, ts (UTC ISO), lat REAL, lon REAL, accuracy_m REAL NULL,
+                 speed_ms REAL NULL, source ('overland'), UNIQUE(user_id, ts, source)
+                 -- raw GPS from the Overland logger (API.md §3b); points with
+                 --   horizontal_accuracy > 100m never land. TRANSIENT: pruned
+                 --   after 90 days by the nightly assembly once the day's
+                 --   movement aggregate exists (§8) — the aggregate in
+                 --   journal_days.stats_json is what lives forever. Location
+                 --   never leaves this table + the primary-only journal.
 habits           id, user_id, key UNIQUE ('gym','reading','japanese','walk'), title,
                  kind ('auto'|'tap'|'hybrid'), target_json ({"per_week":3} |
                  {"per_day":1}), evidence ('workouts:wtype in cfg'|'events:reading'|
@@ -140,3 +148,12 @@ SQLite with daily `.backup()` (WAL-safe) pruned to 30 — the Kakeibo/Michi patt
 sync sends **daily aggregates + workouts** (API.md §2, either path), which keeps
 row counts trivial (≈10 metrics × 365 days). If minute-level ever lands, aggregate to
 daily on ingest and discard raw — revisit only with a real need.
+
+`location_points` is the aggregate-then-discard case in practice: the nightly
+assembly (`assemble_yesterday` → `movement.prune_location_points`) deletes raw points
+older than **90 days**, but only for days whose `journal_days` row already exists —
+a day the assembly somehow missed keeps its raw points until it is assembled. The
+daily movement aggregate (`stats_json`: trace ≤200 points, distance, away minutes)
+lives forever in `journal_days`. Chosen over the backup script as the pruning home
+because retention is an assembly concern (the prune precondition *is* "the aggregate
+exists"), and the journal agent already runs nightly.

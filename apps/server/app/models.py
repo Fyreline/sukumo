@@ -114,6 +114,31 @@ class Workout(Base):
     )
 
 
+# ============ location_points — DATA_MODEL §2 (passive movement) ============
+# Raw GPS points from the Overland iOS logger (docs/API.md §3b). Deliberately
+# minimal: coordinates, accuracy, speed — motion/battery/etc. from the payload
+# are NOT stored. Raw points are transient (pruned after 90 days once the
+# day's movement aggregate lives in journal_days.stats_json — DATA_MODEL §8);
+# the aggregate is what persists. Location never leaves this table + the
+# primary-only journal (docs/MEMORY.md §2).
+class LocationPoint(Base):
+    __tablename__ = "location_points"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    ts: Mapped[str] = mapped_column(nullable=False)  # UTC 'YYYY-MM-DD HH:MM:SS'
+    lat: Mapped[float] = mapped_column(nullable=False)
+    lon: Mapped[float] = mapped_column(nullable=False)
+    accuracy_m: Mapped[float | None] = mapped_column(nullable=True)
+    speed_ms: Mapped[float | None] = mapped_column(nullable=True)
+    source: Mapped[str] = mapped_column(nullable=False, server_default=text("'overland'"))
+    created_at: Mapped[str] = mapped_column(nullable=False, server_default=NOW)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "ts", "source", name="uq_location_point"),
+    )
+
+
 # ============ habits / habit_events — DATA_MODEL §2 =========================
 class Habit(Base):
     __tablename__ = "habits"

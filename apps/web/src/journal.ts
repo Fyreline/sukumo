@@ -20,6 +20,13 @@ export interface JournalStats {
   calendar?: number
   milestones?: number
   events?: number
+  /** Movement block (memory/movement.py) — present only on days with a
+   * location trace. `trace` is [[lat, lon], …] (absolute coords, ≤200 pts);
+   * `away_min` is null when no home coords are configured server-side.
+   * Primary-only by the journal door — never on the dashboard or in pushes. */
+  trace?: [number, number][]
+  distance_m?: number
+  away_min?: number | null
 }
 
 /** A day as returned by GET /api/journal?from=&to= (no events in the list). */

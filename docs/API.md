@@ -20,6 +20,7 @@ GET  /api/dashboard        -- THE aggregate: one response paints every bridge ti
 
 POST /api/ingest/health    (ingest-token) phone health sync webhook — §2
 POST /api/ingest/event     (ingest-token) generic event — §3 (Shortcuts etc.)
+POST /api/ingest/location  (ingest-token) Overland GPS batches — §3b
 POST /api/notify           (ingest-token, scope notify) the household bus — §5
 
 GET/POST/PATCH /api/habits, /api/habits/{id}/events   -- config + the 1-tap log
@@ -118,6 +119,51 @@ never records still satisfy the gym-day rule (COACH §3.2); `manual`/`milestone`
 → `memory_events`. Planned Shortcuts (set up in Phase 8, listed in PRIVATE.md checklist):
 office geofence arrive/leave; a gym geofence arrive; a home-screen "📖 logged" one-tap;
 optionally a share-sheet "remember this" → `manual`.
+
+## 3b. Passive location → `POST /api/ingest/location` (Overland)
+
+**The source (2026-07-11): [Overland](https://overland.p3k.app)** — free, open-source
+iOS background GPS logger, chosen over paid trackers because the data never touches a
+third-party service: the app POSTs straight to Sukumo. It batches GeoJSON:
+
+```json
+{ "locations": [ { "type": "Feature",
+                   "geometry": { "type": "Point", "coordinates": [lon, lat] },
+                   "properties": { "timestamp": "2026-07-10T09:15:03Z",
+                                   "horizontal_accuracy": 10, "speed": 1.2,
+                                   "motion": ["walking"], "battery_level": 0.8 } } ] }
+```
+
+**The response contract is Overland's, not ours:** a 200 whose body is the literal
+`{"result": "ok"}`, or the app retains the batch and re-sends it at the next interval
+forever. So the endpoint *always* returns that exact shape on 200, and the real
+outcome lives in the `sync_runs` row (source `ingest:location`): `items` = points
+accepted, `error` = `dropped=N` when any were rejected. Per-feature filtering
+(`ingest/location.py`): `horizontal_accuracy` > 100 m or negative (an invalid fix),
+malformed geometry/timestamps, and out-of-range coordinates are **dropped and still
+acked** — a poison point must never wedge Overland's retry queue. Only a payload with
+no `locations` list at all (i.e. not Overland) gets a 400. Rows stored are minimal —
+ts/lat/lon/accuracy/speed only; `motion`, battery and the rest are discarded. Upserts
+are idempotent on `(user_id, ts, source)` since retries re-send whole batches.
+
+**Auth: header-only, by decision.** Overland (v1.3+) has an *Access token* field in
+its settings, sent as `Authorization: Bearer <token>` — exactly Sukumo's standard
+ingest-token door (AUTH.md §3), so the token is configured there, next to the server
+URL. A `?token=` query fallback was considered for older Overland builds whose only
+config is the bare URL field, and **rejected**: query strings land verbatim in
+uvicorn's access log (`~/Library/Logs/sukumo/api.log`), which would persist a live
+credential in plaintext on disk with no way to mask it from inside the app. Since the
+current app supports the header, the query path buys nothing and leaks by design —
+it does not exist here, and a token in the query string simply 401s (missing header).
+Phone-side setup steps: docs/PHONE-SETUP.md.
+
+**What it feeds:** nothing user-facing directly. The nightly assembly reduces each
+day's points to one movement block in `journal_days.stats_json` (MEMORY.md §2, §5)
+— trace + distance + minutes away from home (`SUKUMO_HOME_LAT/LON`, the same .env
+pair weather uses) — and raw points are pruned after 90 days (DATA_MODEL §8).
+Location is journal-only: primary-only routes, never the dashboard, the partner
+portal, or any push (the coach/notify packages are grep-pinned against it by
+`test_architecture_rules.py`).
 
 ## 4. Sibling read contracts (the Phase-3 patches)
 

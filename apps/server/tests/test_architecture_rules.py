@@ -21,6 +21,26 @@ def test_clients_are_read_only():
     assert result.stdout.strip() == "", f"write verb found in app/clients/: {result.stdout}"
 
 
+def test_location_never_reaches_push_surfaces():
+    """MEMORY.md #2 hard line: nothing location-derived enters push
+    composition. The coach package and the notify pipe must reference
+    neither the raw table (location_points / LocationPoint) nor the journal's
+    stats_json (where the trace lives) -- pinned as a grep so a future rule
+    can't quietly pick the trace up."""
+    for target in ("app/coach", "app/notify.py"):
+        result = subprocess.run(
+            [
+                "grep",
+                "-rn",
+                r"location_points\|LocationPoint\|stats_json",
+                str(SERVER_DIR / target),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.stdout.strip() == "", f"location/stats reference in {target}: {result.stdout}"
+
+
 def test_no_private_coordinates_or_urls_committed_in_fixtures():
     """ARCHITECTURE.md #5.5: PRIVATE data enters via .env/DB only. The
     committed calendar fixture must not reference the real SUKUMO_ICS_URLS

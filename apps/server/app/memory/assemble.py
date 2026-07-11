@@ -24,8 +24,10 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..config import get_settings
 from ..models import HealthSample, JournalDay, MemoryEvent
 from . import mappers
+from . import movement as movement_mod
 
 LONDON = ZoneInfo("Europe/London")
 
@@ -113,8 +115,14 @@ def _oxford(items: list[str]) -> str:
 
 
 # --------------------------------------------------------------- composing --
-def compose_summary(local_date: str, events: list[MemoryEvent], steps: int) -> tuple[str, dict]:
-    """Pure function: (summary_md, stats_json) from a day's events + steps.
+def compose_summary(
+    local_date: str,
+    events: list[MemoryEvent],
+    steps: int,
+    movement: dict | None = None,
+) -> tuple[str, dict]:
+    """Pure function: (summary_md, stats_json) from a day's events + steps +
+    the optional movement block (movement.day_movement — trace/distance/away).
 
     No timestamps of *assembly* leak in — only the day's own data — so the
     output is byte-stable across re-runs (the determinism law)."""
@@ -141,6 +149,13 @@ def compose_summary(local_date: str, events: list[MemoryEvent], steps: int) -> t
     # (the mapper already phrases them, e.g. "Strength, 52 min").
     if steps > 0:
         lines.append(_sentence(f"{steps:,} steps"))
+    # The movement-trace line (MEMORY §2-3): figures are fine here — the
+    # journal is the authed, primary-only app. The redaction gate applies to
+    # pushes, and nothing push-shaped (coach/notify/briefing) ever reads
+    # summary_md or stats_json (test_architecture_rules pins that).
+    if movement is not None:
+        km = movement.get("distance_m", 0) / 1000
+        lines.append(_sentence(f"Out and about — {km:.1f} km on foot"))
     for w in workouts:
         lines.append(_sentence(w.title or "A workout"))
 
@@ -188,8 +203,9 @@ def compose_summary(local_date: str, events: list[MemoryEvent], steps: int) -> t
             lines.append(_sentence(mn.title))
 
     # A day with no logged events reads honestly short (MEMORY §1) — steps
-    # alone is a "quiet Tuesday", not a full slotted entry.
-    if not events or not lines:
+    # alone is a "quiet Tuesday", not a full slotted entry. A movement trace
+    # counts as something happening, so a walk-only day keeps its lines.
+    if (not events and movement is None) or not lines:
         if steps > 0:
             body = f"A quiet {weekday} — {steps:,} steps, nothing else logged.\n"
         else:
@@ -210,6 +226,13 @@ def compose_summary(local_date: str, events: list[MemoryEvent], steps: int) -> t
         "milestones": len(milestones) + len(finances),
         "events": len(events),
     }
+    # Movement keys ride along only when a trace exists — absent keys keep
+    # every pre-location day's stats_json byte-identical (determinism law),
+    # and the UI degrades to nothing (MEMORY §5).
+    if movement is not None:
+        stats["trace"] = movement["trace"]
+        stats["distance_m"] = movement["distance_m"]
+        stats["away_min"] = movement["away_min"]
     return summary_md, stats
 
 
@@ -227,6 +250,16 @@ def _pretty_date(d: date) -> str:
 
 
 # --------------------------------------------------------------- assembly ---
+def _home_coords() -> tuple[float, float] | None:
+    """SUKUMO_HOME_LAT/LON via the Settings object (the same pair weather
+    already uses; docs/ARCHITECTURE.md §5.5 — .env only, never committed).
+    None when either is unset: away_min degrades to null, never a crash."""
+    s = get_settings()
+    if s.home_lat is None or s.home_lon is None:
+        return None
+    return (s.home_lat, s.home_lon)
+
+
 def assemble_day(
     session: Session,
     local_date: str,
@@ -246,7 +279,8 @@ def assemble_day(
 
     events = _events_for(session, local_date)
     steps = _steps_for(session, local_date)
-    summary_md, stats = compose_summary(local_date, events, steps)
+    movement = movement_mod.day_movement(session, local_date, home=_home_coords())
+    summary_md, stats = compose_summary(local_date, events, steps, movement)
     stats_json = json.dumps(stats, sort_keys=True)
     event_count = len(events)
 
@@ -320,7 +354,13 @@ def assemble_yesterday(session: Session, *, now: datetime | None = None) -> dict
     mappers.run_mappers(session, now)
     assemble_day(session, day_before.isoformat(), now=now, run_maps=False)
     assemble_day(session, yesterday.isoformat(), now=now, run_maps=False)
-    return {"assembled": [day_before.isoformat(), yesterday.isoformat()]}
+    # Location retention rides the nightly (DATA_MODEL §8): raw points older
+    # than 90 days go once their day's aggregate exists in journal_days.
+    pruned = movement_mod.prune_location_points(session, now=now)
+    return {
+        "assembled": [day_before.isoformat(), yesterday.isoformat()],
+        "pruned_location_points": pruned,
+    }
 
 
 def data_date_bounds(session: Session) -> tuple[str, str] | None:

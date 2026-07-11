@@ -292,6 +292,102 @@ function PhotoStrip({ date, count }: { date: string; count: number }) {
   )
 }
 
+// -------------------------------------------------------------- route card --
+/** The day's movement trace (MEMORY §5): the simplified [[lat, lon], …] from
+ * stats_json drawn as a bare SVG polyline, auto-fitted to its bounding box
+ * with a cos(lat) correction so distances aren't squashed. Deliberately NO
+ * base map and NO external tile/geocoding requests — the coordinates never
+ * leave the household (privacy IS the design). Sky ink at the liquid-thread
+ * weight on paper; olive start dot, clay end dot; degrades to nothing when a
+ * day has no trace. */
+const ROUTE_W = 320
+const ROUTE_H = 160
+const ROUTE_PAD = 14
+
+export function routeCaption(distanceM: number, awayMin: number | null | undefined): string {
+  const km = `${(distanceM / 1000).toFixed(1)} km on foot`
+  if (awayMin == null || awayMin <= 0) return km
+  const h = Math.floor(awayMin / 60)
+  const m = awayMin % 60
+  const time = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m} min`
+  return `${km} · ${time} out`
+}
+
+function RouteCard({
+  trace,
+  distanceM,
+  awayMin,
+}: {
+  trace: [number, number][]
+  distanceM: number
+  awayMin: number | null | undefined
+}) {
+  const reduce = useReducedMotion()
+  if (trace.length < 2) return null
+
+  const lats = trace.map((p) => p[0])
+  const lons = trace.map((p) => p[1])
+  const minLat = Math.min(...lats)
+  const maxLat = Math.max(...lats)
+  const minLon = Math.min(...lons)
+  const maxLon = Math.max(...lons)
+  // Metres-true aspect: one degree of longitude shrinks by cos(latitude).
+  const kx = Math.cos(((minLat + maxLat) / 2) * (Math.PI / 180))
+  const spanX = (maxLon - minLon) * kx || 1e-6
+  const spanY = maxLat - minLat || 1e-6
+  const scale = Math.min((ROUTE_W - ROUTE_PAD * 2) / spanX, (ROUTE_H - ROUTE_PAD * 2) / spanY)
+  const offX = (ROUTE_W - spanX * scale) / 2
+  const offY = (ROUTE_H - spanY * scale) / 2
+  const x = (lon: number) => offX + (lon - minLon) * kx * scale
+  const y = (lat: number) => ROUTE_H - offY - (lat - minLat) * scale // north up
+  const pts = trace.map(([lat, lon]) => `${x(lon).toFixed(1)},${y(lat).toFixed(1)}`).join(' ')
+  const [startLat, startLon] = trace[0]
+  const [endLat, endLon] = trace[trace.length - 1]
+  const caption = routeCaption(distanceM, awayMin)
+
+  return (
+    <div>
+      <h4 className="mb-1.5 font-display text-xs font-medium tracking-[0.02em] text-ink-mid">Route</h4>
+      <div className="rounded-lg border border-line bg-paper p-2">
+        <svg
+          viewBox={`0 0 ${ROUTE_W} ${ROUTE_H}`}
+          role="img"
+          aria-label={`Route for the day — ${caption}`}
+          className="w-full max-w-sm"
+        >
+          {reduce ? (
+            <polyline
+              points={pts}
+              fill="none"
+              stroke="var(--color-sky)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ) : (
+            <motion.polyline
+              points={pts}
+              fill="none"
+              stroke="var(--color-sky)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              pathLength={1}
+              strokeDasharray="1"
+              initial={{ strokeDashoffset: 1 }}
+              animate={{ strokeDashoffset: 0 }}
+              transition={{ duration: 0.9, ease: 'easeInOut' }}
+            />
+          )}
+          <circle cx={x(startLon)} cy={y(startLat)} r="3.5" fill="var(--color-olive)" />
+          <circle cx={x(endLon)} cy={y(endLat)} r="3.5" fill="var(--color-clay)" />
+        </svg>
+        <p className="mt-1 px-1 font-mono text-[11px] text-ink-soft">{caption}</p>
+      </div>
+    </div>
+  )
+}
+
 // -------------------------------------------------------------- day detail --
 function StatChip({ label, value }: { label: string; value: string }) {
   return (
@@ -391,6 +487,10 @@ function DayDetail({
           </ul>
         </div>
       ))}
+
+      {(s.trace?.length ?? 0) >= 2 && (
+        <RouteCard trace={s.trace as [number, number][]} distanceM={s.distance_m ?? 0} awayMin={s.away_min} />
+      )}
 
       {photoCount > 0 && <PhotoStrip date={detail.local_date} count={photoCount} />}
 

@@ -21,6 +21,7 @@ from ..db import get_session
 from ..errors import SukumoHTTPException
 from ..ingest.events import ingest_event
 from ..ingest.health import ingest_health_payload
+from ..ingest.location import ingest_location_payload
 from ..models import IngestToken, SyncRun
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
@@ -72,6 +73,60 @@ async def ingest_health_endpoint(
     )
     session.commit()
     return result
+
+
+@router.post("/location")
+async def ingest_location_endpoint(
+    payload: dict,
+    token: IngestToken = Depends(ingest_token_auth("ingest")),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Overland GPS batches (docs/API.md #3b). The 200 body is ALWAYS the
+    literal ``{"result": "ok"}`` Overland requires -- any other body makes the
+    app retain and re-send the batch forever -- so accepted/dropped counts go
+    to the ``sync_runs`` row ('ingest:location'), not the response. Auth is
+    header-only (``Authorization: Bearer <ingest token>``): no ``?token=``
+    query fallback, because query strings land verbatim in uvicorn's access
+    log (API.md #3b has the full reasoning)."""
+    started_at = _utcnow_str()
+    if token.user_id is None:
+        raise SukumoHTTPException(
+            status_code=400, detail="Ingest token has no associated user", code="token_unowned"
+        )
+
+    try:
+        result = ingest_location_payload(session, token.user_id, payload)
+    except Exception as exc:  # noqa: BLE001 -- any parse/shape failure becomes a diagnosable sync_run
+        session.rollback()
+        session.add(
+            SyncRun(
+                source="ingest:location",
+                started_at=started_at,
+                finished_at=_utcnow_str(),
+                status="error",
+                items=0,
+                error=str(exc),
+            )
+        )
+        session.commit()
+        raise SukumoHTTPException(
+            status_code=400, detail=f"Invalid location payload: {exc}", code="invalid_payload"
+        ) from exc
+
+    session.add(
+        SyncRun(
+            source="ingest:location",
+            started_at=started_at,
+            finished_at=_utcnow_str(),
+            status="ok",
+            items=result["accepted"],
+            # the dropped count rides along so the Ops tile can show it; never
+            # coordinates, never token material (ARCHITECTURE #5.5).
+            error=f"dropped={result['dropped']}" if result["dropped"] else None,
+        )
+    )
+    session.commit()
+    return {"result": "ok"}
 
 
 @router.post("/event")

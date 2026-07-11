@@ -23,6 +23,7 @@ journal harder. The engine's job is *assembly and retrieval*, not creation.
 | Photos (osxphotos, if Q4 yes) | `photo` | photo uuid | count + times + place names per day; **metadata only in the well, no originals ever copied or uploaded**. The journal's thumb strip is served separately: small *derivative* JPEGs on demand (`/api/photos/{uuid}/thumb`, primary-only), cached in gitignored `data/thumbs/` — never originals, never in the repo |
 | `/api/ingest/event` manual | `manual`/`milestone` | event id | share-sheet "remember this" |
 | Books (status→finished) | `milestone` | `book:<id>` | "finished *Title*" |
+| Overland location ingest | *(none — bypasses the well)* | — | raw GPS points land in `location_points` (API.md §3b), never as `memory_events`; assembly reduces each day to one movement block in `stats_json` (trace/distance/away minutes) and the raw points die at 90 days. **All metadata stays local** — no geocoding, no tiles, no third-party call, ever — **and the partner never sees location**: it surfaces only through the primary-only journal, never the dashboard, portal, or a push (grep-pinned by `test_architecture_rules.py`) |
 
 Ingesters are idempotent on `(source, provider_uid)` — assembly can re-run any day
 forever. Parked v2 source (HANDOFF Q4): the film-scan photo folder on the Windows
@@ -30,11 +31,22 @@ desktop — a future watched-folder ingest, not in v1.
 
 ## 3. Nightly assembly (`assemble_day.py`, 02:30, for yesterday)
 
-1. Gather yesterday's `memory_events` + daily `health_samples` aggregates.
-2. Compose `summary_md` — rules-based v1: a template with slots (movement line, study
+1. Gather yesterday's `memory_events` + daily `health_samples` aggregates + the day's
+   `location_points` reduced to a movement block (`memory/movement.py`): haversine
+   distance (jumps >200 m inside 30 s are GPS noise, skipped), minutes outside 150 m
+   of home when `SUKUMO_HOME_LAT/LON` is set (else null), and a Douglas-Peucker-
+   simplified trace of ≤200 absolute `[lat, lon]` points (absolute rather than
+   normalised — stats_json is already primary-only, and absolute coords redraw
+   without a second lookup).
+2. Compose `summary_md` — rules-based v1: a template with slots (movement line —
+   including "Out and about — 6.2 km on foot." on traced days, study
    line, events line, films line, photos line), skipping empty slots so thin days read
-   naturally short. Deterministic, testable, no LLM required.
-3. Store `journal_days` row (`stats_json` carries the numbers the UI charts).
+   naturally short. Deterministic, testable, no LLM required. Figures are fine here
+   (it's the authed journal); the redaction gate applies to pushes, which never read
+   summary_md/stats_json.
+3. Store `journal_days` row (`stats_json` carries the numbers the UI charts, plus
+   `trace`/`distance_m`/`away_min` on days with location data). The nightly run also
+   prunes raw `location_points` older than 90 days (DATA_MODEL §8).
 4. Re-assembly on demand (`assemble_day.py --date`) for backfill or when late data
    arrives (HAE syncs can lag) — the daily agent also re-runs yesterday-1 for this.
 
@@ -57,7 +69,13 @@ system runs; it's the compounding payoff of starting now.
 on a `--color-liquid` thread — the Michi trail motif repurposed as a timeline), month
 jump-nav, thin-day cards visually quieter. Trip ranges render with a chapter header
 (Japan gets the crimson torii treatment). Day card tap → detail: stats row
-(sparklines), events by kind, the day's photos as a collapsible thumbnail strip
+(sparklines), events by kind, a **Route card** on days with a movement trace — the
+simplified polyline drawn as bare SVG auto-fitted to its bounding box (cos-lat
+corrected so distances aren't squashed), sky ink at the liquid-thread weight, olive
+start dot, clay end dot, captioned "6.2 km on foot · 3h 7m out". Deliberately **no
+base map and no external tile/geocoding request** — the coordinates never leave the
+household; that absence *is* the design. Degrades to nothing when a day has no trace;
+draw-in animation skipped under reduced motion. Then the day's photos as a collapsible thumbnail strip
 ("N photos ›" → a lazy-loaded row of authed derivative thumbs, blob→object-URL,
 revoked on collapse), the mood one-tap. An "Open Photos" link remains but is
 labelled honestly: **macOS/iOS expose no public URL scheme to a specific photo,
